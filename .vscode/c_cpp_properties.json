@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/include/**",
+                "${workspaceFolder}/example/**",
+                "${workspaceFolder}/example/monos_arm/**"
+            ],
+            "defines": [],
+            "compilerPath": "/usr/bin/clang-14",
+            "cStandard": "c17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "linux-gcc-x64"
+        }
+    ],
+    "version": 4
+}
