@@ -1,0 +1,11 @@
+set(SlimSerialRTDE_VERSION x.y.z)
+
+@PACKAGE_INIT@
+
+set_and_check(SlimSerialRTDE_INCLUDE_DIRS "@PACKAGE_INCLUDE_INSTALL_DIR@")
+set_and_check(SlimSerialRTDE_LIBRARY_DIRS "@PACKAGE_LIBRARY_INSTALL_DIR@")
+ 
+message("SlimSerialRTDE_INCLUDE_DIRS is " ${SlimSerialRTDE_INCLUDE_DIRS})
+message("SlimSerialRTDE_LIBRARY_DIRS is " ${SlimSerialRTDE_LIBRARY_DIRS})
+
+check_required_components(SlimSerialRTDE) 

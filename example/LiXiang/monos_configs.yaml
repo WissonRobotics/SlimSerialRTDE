@@ -1,0 +1,242 @@
+## 理想 12.24
+CarName: LiXiang
+Camera:
+  global_camera_resolution:
+    - 640
+    - 400
+  global_clipping_distance_in_meters: 4
+  local_camera_resolution:
+    - 640
+    - 400
+  save_count: 8
+  save_dir: /home/rpdzkj/maxwell2.0_ws/camera_save_data
+Button:
+  baudrate: 19200
+  port: /dev/ttyUSB14
+ReadyPosition:
+  X: 0.02
+  Y: 0
+  Z: 0
+  Pitch: -0.017
+Arm:
+  Y_max: 0.8
+  baudrate: 3000000
+  jointDeadZone:
+    - 0.0005
+    - 0.0005
+    - 0.0005
+    - 0.008
+    - 0.1
+    - 2
+  port: /dev/F429
+  speed_level: middle
+  yaw_zero_offset: 0.76
+  yaw_zero_offset_enable: True
+  guide_elongate_value: 600
+  gun_elongate_value: 800
+  cable_contract_value: 1200
+  gripper_shift_central_value: 1400
+  gripper_close_value: -500
+  gun_lock_value: -600
+
+  guide_contract_value: -700
+  gun_contract_value: -800
+  cable_elongate_value: -600
+  gripper_shift_away_value: -600
+  gripper_open_value: 500
+  gun_unlock_value: 800
+
+Model:
+  detection_threshold_high: 0.7
+  detection_threshold_low: 0.6
+  model_dir: models/car
+  local_bbox_size:
+    - 200
+    - 250
+PointCloud:
+  Original_size:
+    - 0
+    - 0
+    - 0
+  bbox_corner_crop_type: triangle
+  calculate_points: 20
+  cluster_eps: 0.01
+  cluster_min_points: 20
+  global_clipping_z_range_m:
+    - 0.1
+    - 3
+  global_downsample_voxel_size: 0.001
+  local_clipping_z_range_m:
+    - 0.1
+    - 0.5
+  local_downsample_voxel_size: 0.001
+  radius_outlier_removal_nb_points: 100
+  radius_outlier_removal_radius: 0.1
+  statistical_outlier_removal_nb_neighbors: 200
+  statistical_outlier_removal_std_ratio: 0.1
+
+Task:
+  global_cam_detection_timeout: 10
+  global_planning_times_limit: 2
+  global_repeat_times_limit: 2
+
+  local_cam_detection_timeout: 10
+  local_planning_times_limit: 5
+  local_repeat_times_limit: 5
+  local_adjust_times_limit: 15
+
+  attach_gun_insert_timeout: 20
+  attach_guide_aligned_timeout: 10
+  attach_cam_unplug_assessing_timeout: 20
+  attach_failed_times_limit: 1
+
+  detach_gun_contract_timeout: 30
+
+
+AutoDetach: False
+Alignment:
+  alignment_laser_original: 82
+  alignment_well_distance: 156
+  # alignment_well_distance: 125
+Detach:
+  detached_well_distance: 68
+Attach:
+  attached_well_distance: 220
+DoorControl:
+  door_open_value_send: 140
+  door_open_value_check: 57
+  door_open_timeout: 6
+  door_close_value_send: 2
+  door_close_value_check: 2
+  door_close_timeout: 6
+
+GlobalCameraPosition:
+  RollInit: -90
+  XInit: 0.19263
+  YInit: -0.33457
+  YawInit: -70
+  ZInit: 0.79975
+Inlet:
+  YawInit: 10
+ 
+Compensation:
+# 延时参数
+  time_start_attach_delay: 50
+  time_gun_elongate_delay: 10000
+  time_gun_contract_delay: 15000
+  time_gripper_shift_delay: 5000
+  time_guide_elongate_delay: 2000
+  time_gripper_grasp_delay: 2000
+  time_arm_move_finish_delay: 2
+#枪伸长距离
+  gun_elongate_distance_to_grasp: 90
+  gun_elongate_distance_to_insert: 140
+#插枪中途z轴循环微调下降距离
+  attach_z_axis_adjust_in_while: -0.001
+  attach_z_axis_adjust_before_while: -0.00
+  attach_x_axis_adjust_before_while: 0.000
+  detach_z_axis_adjust_before_plug: 0.035
+  #导向柱插入成功视觉识别参数
+  aligned_well_detect_box_result_x0: 295
+  aligned_well_detect_box_result_x0_error_threshold: 20
+  aligned_well_detect_box_result_y1: 210
+  aligned_well_detect_box_result_y1_error_threshold: 20
+
+  # attach_z_axis_dancing_half_period: 0.35
+  # attach_z_axis_dancing_step: -0.016
+  # detach_z_axis_adjust: 0.035
+  # detach_z_axis_dancing_half_period: 0.35
+  # detach_z_axis_dancing_step: 0.012
+  # elongate_pitch: -7
+  # elongate_speed: 0.01
+  # local_detection_pitch: -1.9  -2.1
+  local_detection_yaw: 0
+LocalCameraPosition:
+  RollInit: -15
+  XInit: -0.110
+  YInit: -0.003
+  YawInit: -90
+  ZInit: -0.030
+GlobalStrategyForTargetPose:
+  Pitch: 90
+  XOffset: -0.12
+  XOffset_min: -0.1
+  YOffset: 0.0
+  ZOffset: 0
+LocalStrategyForTargetPoseStage1:
+  Pitch: 90
+  XOffset: -0.12
+  YOffset: 0
+  ZOffset: -0.065
+LocalStrategyForTargetPoseStage2:
+  Pitch: 90
+  XOffset: -0.095
+  YOffset: 0.00
+  ZOffset: -0.0
+LocalStrategyForTargetPose_inArm:
+  XOffset: 0
+  YOffset: 0
+  ZOffset: 0
+LocalStrategy:
+  MultipleLocalLocalization: True
+
+  #XOffset: -0.075 + -0.027   no plug -0.085
+# CompensationMechanical:
+#   Yaw: 2.5
+# Localization:
+#   convergence_threshold:
+#     - 0.003
+#     - 0.003
+#     - 0.005
+#     - 3
+#     - 3
+#     - 3
+#   global_init_pose:
+#     - 0
+#     - 0
+#     - 0
+# Debug:
+#   enable_visualizer: False
+#   is_analysis: True
+#   is_debug: True
+#   is_save: True
+#   is_show: False
+#   log_dir: ./log_dir
+#   log_save_dir: ./log_save_data
+# MonosStatus:
+#   debug: 4
+#   idle: 1
+#   in_task: 2
+#   self_inspection: 3
+# TaskStage:
+#   stage_attach_check_in: 19
+#   stage_attach_check_well: 21
+#   stage_attach_contract: 20
+#   stage_attach_elongate: 18
+#   stage_charging: 22
+#   stage_detach_contract: 23
+#   stage_detach_erect: 24
+#   stage_global_check: 6
+#   stage_global_erect: 7
+#   stage_global_finish: 8
+#   stage_global_move: 5
+#   stage_global_perception: 4
+#   stage_global_ready: 3
+#   stage_homed: 1
+#   stage_homing: 25
+#   stage_local_check_R: 17
+#   stage_local_check_XY_PY: 11
+#   stage_local_check_Z: 14
+#   stage_local_moving_R: 16
+#   stage_local_moving_XY_PY: 10
+#   stage_local_moving_Z: 13
+#   stage_local_perception_R: 15
+#   stage_local_perception_XY_PY: 9
+#   stage_local_perception_Z: 12
+#   stage_ready: 2
+#   stage_readying: 26
+#   stage_unknown: 0
+# ErrorFlag:
+#   global_detect_fail: 3
+#   local_detect_fail: 4
+#   warning_soft_arm: 2

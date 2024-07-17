@@ -1,0 +1,10 @@
+out
+.vs
+build
+dist
+pySlimDriveRTDE.egg-info
+python_binding/pySlimDriveRTDE.pyi 
+serialTestStatistics_54000s
+*.log
+Maxwell_SoftArm*
+SlimSerialRTDE.log
