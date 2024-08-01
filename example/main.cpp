@@ -266,12 +266,12 @@ int main(int argc, char** argv) {
 	debuglevelCli = "warning";
 
 	#if defined(__linux__)
-		portnameCli = "/dev/ttyV0";
+		portnameCli = "/tmp/ttyV0";
 	#else
 		portnameCli = "COM3";
 	#endif
 	SlimSerialServer server;
-	if (server.connect(portnameCli, appBaudrateCli,true) == true) {
+	if (server.connect(portnameCli, appBaudrateCli,true) == WS_OK) {
 		printf("serial port connectted to %s at %d\r\n", portnameCli.c_str(), appBaudrateCli);
 		server.setFrameType(1);
 	}
@@ -282,7 +282,7 @@ int main(int argc, char** argv) {
 
 	//Client
 	#if defined(__linux__)
-		portnameCli = "/dev/ttyV1";
+		portnameCli = "/tmp/ttyV1";
 	#else
 		portnameCli = "COM4";
 	#endif
@@ -290,7 +290,7 @@ int main(int argc, char** argv) {
 	arm.Connect(portnameCli,appBaudrateCli);
 	Maxwell_SoftArm_SerialClient &client=arm.rtde_client_;
 
-	// if (client.connect(portnameCli, appBaudrateCli,true) == true) {
+	// if (client.connect(portnameCli, appBaudrateCli,true) == WS_OK) {
 	// 	printf("serial port connectted to %s at %d\r\n", portnameCli.c_str(), appBaudrateCli);
 	// 	client.setLoggerLevel(debuglevelCli);
 	// 	client.setFrameType(1); 
@@ -352,17 +352,20 @@ int main(int argc, char** argv) {
 	// arm.ValveOff();
 	arm.ValveOn();
 
-	arm.GunElongate();
-	arm.GunContract();
+	// arm.GunElongate();
+	// arm.GunContract();
  
-	arm.GunLock();
-	arm.GunUnlock();
+	// arm.GunLock();
+	// arm.GunUnlock();
 
-	arm.GripperOpen();
-	arm.GripperClose();
+	// arm.GripperOpen();
+	// arm.GripperClose();
 
 
+	arm.MovePitch(0.1);
+	arm.MovePitchAsync(0.2);
 
+	sleep(5);
 
 	arm.ErectUp();
 	arm.BendDown();

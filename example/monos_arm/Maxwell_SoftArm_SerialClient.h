@@ -1,7 +1,6 @@
 #pragma once
-#include "SlimSerialDefines.h"
-#include "slimRegister.h"
-#include "../../include/thread_safe_queue.h"
+ 
+#include "slimRegister.h" 
 
 #include "../../include/SlimSerialRTDE.h"
 #include <mutex>
@@ -94,6 +93,9 @@ class Maxwell_SoftArm_SerialClient : public SlimSerialRTDE
 public:
     Maxwell_SoftArm_SerialClient();
     ~Maxwell_SoftArm_SerialClient();
+ 
+    WS_STATUS connect(std::string portname,uint32_t baudrate);
+    void run();
     std::function<void(uint8_t *pdata, uint32_t databytes)> monosFrameCallbackFunc;
     void monosFrameCallback(uint8_t *pdata, uint32_t databytes);
     void setYawOffset(float yaw_offset);
@@ -101,19 +103,30 @@ public:
     std::function<void()> updateCallback;
     void setUpdateCallback(std::function<void()> cb);
 
-    std::vector<uint8_t> assembleTxFrame(SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
+    std::vector<uint8_t> assembleTxFrame(SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
 
-    std::array<uint8_t, 8> &getIOStatus() { return sensorData.IOFlags; }; 
-    std::array<int16_t, 2> &getLaserDistance() { return sensorData.laserDistance; };
-    std::array<int16_t, 8> &getPressure() { return sensorData.pressure; };
-    std::array<int16_t, 1> &getPSource() { return sensorData.pSource; };
-    std::array<int16_t, 1> &getPSink() { return sensorData.pSink; };
-    std::array<float, 6> &getJointf() { return sensorData.jointStatef; };
-    std::array<int16_t, 4> &getRotationEncoder() { return sensorData.rotationEncoder; };
-    std::array<int16_t, 3> &getUltraSonic() { return sensorData.ultraSonic; };
-    std::array<uint16_t,8> &getErrorList() { return sensorData.errorList; };
+    // std::array<uint8_t, 8> &getIOStatus() { return sensorData.IOFlags; }; 
+    // std::array<int16_t, 2> &getLaserDistance() { return sensorData.laserDistance; };
+    // std::array<int16_t, 8> &getPressure() { return sensorData.pressure; };
+    // std::array<int16_t, 1> &getPSource() { return sensorData.pSource; };
+    // std::array<int16_t, 1> &getPSink() { return sensorData.pSink; };
+    // std::array<float, 6> &getJointf() { return sensorData.jointStatef; };
+    // std::array<int16_t, 4> &getRotationEncoder() { return sensorData.rotationEncoder; };
+    // std::array<int16_t, 3> &getUltraSonic() { return sensorData.ultraSonic; };
+    // std::array<uint16_t,8> &getErrorList() { return sensorData.errorList; };
 
+    std::vector<uint8_t> getIOStatus() {std::vector<uint8_t> vec(sensorData.IOFlags.begin(),sensorData.IOFlags.end()); return vec; }; 
+    std::vector<int16_t> getLaserDistance() {std::vector<int16_t> vec(sensorData.laserDistance.begin(),sensorData.laserDistance.end()); return vec; }; 
+    std::vector<int16_t> getPressure() {std::vector<int16_t> vec(sensorData.pressure.begin(),sensorData.pressure.end()); return vec; }; 
+    std::vector<int16_t> getPSource() {std::vector<int16_t> vec(sensorData.pSource.begin(),sensorData.pSource.end()); return vec; }; 
+    std::vector<int16_t> getPSink() {std::vector<int16_t> vec(sensorData.pSink.begin(),sensorData.pSink.end()); return vec; }; 
+    std::vector<float>   getJointf() {std::vector<float> vec(sensorData.jointStatef.begin(),sensorData.jointStatef.end()); return vec; }; 
+    std::vector<int16_t> getRotationEncoder() {std::vector<int16_t> vec(sensorData.rotationEncoder.begin(),sensorData.rotationEncoder.end()); return vec; }; 
+    std::vector<int16_t> getUltraSonic() {std::vector<int16_t> vec(sensorData.ultraSonic.begin(),sensorData.ultraSonic.end()); return vec; }; 
+    std::vector<uint16_t> getErrorList() {std::vector<uint16_t> vec(sensorData.errorList.begin(),sensorData.errorList.end()); return vec; }; 
+    uint8_t               getGunStatus(){return sensorData.IOFlags[5];};
     // WS_STATUS commandQuery(uint32_t timeout = 50);
+
 
     
 

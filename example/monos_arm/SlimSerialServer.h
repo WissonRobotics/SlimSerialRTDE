@@ -1,6 +1,6 @@
 #pragma once
 #include "SlimSerialRTDE.h"
-#include "SlimSerialDefines.h"
+ 
 #include "slimRegister.h" 
 #include <string.h>
 #include "loguru.hpp"

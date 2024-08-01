@@ -29,53 +29,75 @@ Maxwell_SoftArm_SerialClient::Maxwell_SoftArm_SerialClient() : SlimSerialRTDE() 
   }
  
  
-  communicationThread = std::make_unique<std::jthread>(
+
+
+}
+ 
+WS_STATUS Maxwell_SoftArm_SerialClient::connect(std::string portname, uint32_t baudrate)
+{
+    if(SlimSerialRTDE::connect(portname,baudrate)==WS_OK){
+      run();
+      return WS_OK;
+    }
+    else{
+      return WS_ERROR;
+    }
+    
+}
+void Maxwell_SoftArm_SerialClient::run()
+{
+    if (communicationThread)
+    {
+        communicationThread->request_stop();
+        communicationThread->join();
+    }
+    communicationThread = std::make_unique<std::jthread>(
         [this](std::stop_token stop_token)
         {
             while (!stop_token.stop_requested())
             {
-              auto const timeoutPoint = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_FrameTxRxPeriodMs);
-              commandInProgress=true;  
+                auto const timeoutPoint = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_FrameTxRxPeriodMs);
+                commandInProgress = true;
 
-              if(isConnected()){
-                bool isQuery=true;
-                
-                if(commandFrame.commandResult==WS_NONE){
-                    m_commandResult=transmitReceiveFrame(&(commandFrame.frame[0]),commandFrame.framesize,m_FrameTxRxPeriodMs);
-                    commandFrame.commandResult=m_commandResult;
-                    isQuery=false;
+                if (isConnected())
+                {
+                    bool isQuery = true;
+
+                    if (commandFrame.commandResult == WS_NONE)
+                    {
+                        m_commandResult = transmitReceiveFrame(&(commandFrame.frame[0]), commandFrame.framesize, m_FrameTxRxPeriodMs);
+                        commandFrame.commandResult = m_commandResult;
+                        isQuery = false;
+                    }
+                    else{
+                        m_commandResult = transmitReceiveFrame(&queryFrame[0], queryFrameSize, m_FrameTxRxPeriodMs);
+                    }
+
+                    if (m_commandResult != WS_OK)
+                    {
+                        communicationTimeoutCount++;
+                        if (!isQuery)
+                        {
+                            LOG_F(WARNING, "Timeout to command");
+                        }
+                        else
+                        {
+                            LOG_F(WARNING, "Timeout to query");
+                        }
+                        timeoutCallback();
+                    }
                 }
-                else{
-                  m_commandResult=transmitReceiveFrame(&queryFrame[0],queryFrameSize,m_FrameTxRxPeriodMs);
+                else
+                {
+                    m_commandResult = WS_ABORT;
+                    commandFrame.commandResult = m_commandResult;
+                    LOG_F(WARNING, "Arm not connected.");
                 }
 
-                if(m_commandResult!=WS_OK){
-                  communicationTimeoutCount++;
-                  if(!isQuery){
-                    LOG_F(WARNING,"Timeout to command");
-                  }
-                  else{
-                    LOG_F(WARNING,"Timeout to query");
-                  }
-                  timeoutCallback();
-                }
-                
-              } 
-              else{
-                m_commandResult = WS_ABORT;
-                commandFrame.commandResult = m_commandResult;
-                LOG_F(WARNING,"Arm not connected.");
-              }
-
-
-
-              commandInProgress=false; 
-              std::this_thread::sleep_until(timeoutPoint);
+                commandInProgress = false;
+                std::this_thread::sleep_until(timeoutPoint);
             };
-        }
-    );
-
-
+        });
 }
 
 Maxwell_SoftArm_SerialClient::~Maxwell_SoftArm_SerialClient(){
@@ -113,7 +135,7 @@ void Maxwell_SoftArm_SerialClient::monosFrameCallback(uint8_t *pdata,uint32_t da
       sensorData.pSource[0] = pMsg->pSource;
       sensorData.pSink[0] = pMsg->pSink;
 
-      for(int i=0;i<sensorData.IOFlags.size();i++){
+      for(size_t i=0;i<sensorData.IOFlags.size();i++){
         sensorData.IOFlags[i] = (uint16_t)((pMsg->IOFlags.IOU16 >>i) & 0x01);
       }
  
@@ -153,7 +175,7 @@ void Maxwell_SoftArm_SerialClient::setUpdateCallback(std::function<void()>  cb){
 void Maxwell_SoftArm_SerialClient::setYawOffset(float yaw_offset) { this->yaw_offset_ = yaw_offset; }
  
 std::vector<uint8_t> Maxwell_SoftArm_SerialClient::assembleTxFrame(
-SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
+SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
   
 // unit in m and rad
 WS_STATUS Maxwell_SoftArm_SerialClient::commandJoint(std::array<float,6> &jointd) {
@@ -318,11 +340,11 @@ WS_STATUS Maxwell_SoftArm_SerialClient::commandPitch(float pitch_desired) {
 
 
 WS_STATUS Maxwell_SoftArm_SerialClient::commandPitchUp() {
-    commandPitch(0);
+    return commandPitch(0);
 }
 
 WS_STATUS Maxwell_SoftArm_SerialClient::commandPitchDown() {
-    commandPitch(90);
+    return commandPitch(90);
 }
 
 WS_STATUS Maxwell_SoftArm_SerialClient::commandPitchHold(bool pitchhold) {
@@ -405,10 +427,11 @@ WS_STATUS Maxwell_SoftArm_SerialClient::commandChamber(int pressureIndex,int16_t
      return command(axisChosen.axisChosenU16, axisConfig.axisConfigU16, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, targetPressure, 0, 0);
     break;
 
-  default:
+    default:
+      
     break;
   }  
- 
+  return WS_ERROR;
 }
 
 

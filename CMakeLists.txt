@@ -203,17 +203,17 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake"
 
 
 ############################ Begin example speaker  EXE *******************
-# ADD_LIBRARY( speaker
-#                example/speaker.cpp
-#              )
-# target_include_directories(speaker
-#              PRIVATE
-#              ${CMAKE_CURRENT_SOURCE_DIR}/example
-#              ${CMAKE_CURRENT_SOURCE_DIR}/include
-# )
-# TARGET_LINK_LIBRARIES( speaker
-#             SlimSerialRTDE
-# )
+ADD_LIBRARY( speaker
+               example/speaker.cpp
+             )
+target_include_directories(speaker
+             PRIVATE
+             ${CMAKE_CURRENT_SOURCE_DIR}/example
+             ${CMAKE_CURRENT_SOURCE_DIR}/include
+)
+TARGET_LINK_LIBRARIES( speaker
+            SlimSerialRTDE
+)
 
  
 ############################ End example speaker  EXE *******************

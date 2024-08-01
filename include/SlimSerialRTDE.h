@@ -89,7 +89,7 @@ public:
 	SlimSerialRTDE(SlimSerialRTDE&& rhs);
 	SlimSerialRTDE& operator=(SlimSerialRTDE&& rhs);
 
-	bool connect(std::string dname,
+	WS_STATUS connect(std::string dname,
 		unsigned int baud_ = 1000000,bool autoConnect=true);
 	void disconnect();
 	bool isConnected(); 

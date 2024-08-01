@@ -303,7 +303,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(uint8_t *pDat
 
 		std::size_t txedsize = transmit(pData,datasize);
 		if (txedsize!= datasize) {
- 			LOG_F(WARNING, "[TransmitReceive] [Abort] unmatched transmitted bytes %d out of expected %d",txedsize,datasize);
+ 			LOG_F(WARNING, "[TransmitReceive] [Abort] unmatched transmitted bytes %ld out of expected %d",txedsize,datasize);
 			frameCompleteFlag = true;
 			m_tic_frameComplete = getTimeUTC();
 			m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -847,22 +847,22 @@ SlimSerialRTDE::SlimSerialRTDE(SlimSerialRTDE&& rhs) = default;
 SlimSerialRTDE& SlimSerialRTDE::operator=(SlimSerialRTDE&& rhs) = default;
  
 
-bool SlimSerialRTDE::connect(std::string dname,
+WS_STATUS SlimSerialRTDE::connect(std::string dname,
 	unsigned int baud_,bool autoConnect) {
 
 	try {
 		boost::system::error_code err = pimpl_->open(dname, baud_, autoConnect);
 		if (!err) {
 			 
-			return true;
+			return WS_OK;
 		}
 		else {
 			LOG_F(ERROR, "Failed to open %s", dname.c_str());
-			return false;
+			return WS_ERROR;
 		}
 	}
 	catch (...) {
-		return false;
+		return WS_ERROR;
 	}
 }
 void SlimSerialRTDE::disconnect() {

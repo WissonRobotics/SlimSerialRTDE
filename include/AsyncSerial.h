@@ -7,8 +7,7 @@
 #include "boost/asio.hpp"
 
 #include <string.h>
-#include "stdio.h"
-#include "thread_safe_queue.h"
+#include "stdio.h" 
 #include "slimCircularBuffer.h"
 
 
@@ -94,8 +93,7 @@ private:
 	std::condition_variable reconnectCV;
 
 	 
-	std::function<void(void)> rxDataCallback;
-	//dp::thread_safe_queue<SpeakMsgMeta> msgQueue;
+	std::function<void(void)> rxDataCallback; 
 
 	void startAutoConnect(int autoReconnectTimeMs = 1000);
 

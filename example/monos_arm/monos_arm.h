@@ -97,8 +97,8 @@ struct ArmActionProgress{
 class ArmAction{
 public:
   ArmAction(bool preemptible=true)
-  :m_timeout(60),
-  m_preemptible(preemptible),
+  :m_preemptible(preemptible),
+  m_timeout(60),
   m_command_repeat_max(50){
     reset();
   }
@@ -107,7 +107,7 @@ public:
     m_actionName = _name;
   }
  
-  WS_STATUS setActionCompleteCallback(std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
+  void setActionCompleteCallback(std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
     if(actionCompleteCallback){
       m_actionCompleteCallback =  std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback);
     }
@@ -115,6 +115,7 @@ public:
  
   template <typename Func, typename... Args>
   WS_STATUS act(std::string actionName,std::function<bool(ArmActionProgress &progress)> &&actionStartCondition,std::function<bool(ArmActionProgress &progress)> &&actionStopCondition,std::function<bool(ArmActionProgress &progress)> &&actionProgressIndication, std::function<bool(ArmActionProgress &progress)> &&actionCompleteCondition,double timeout_max, Func&& actionFunc, Args&&... actionArgs){
+    LOG_F(INFO, "Enter Action");
     std::unique_lock lock_(m_actionMtx);
     if(m_preemptible){
       lock_.unlock();
@@ -313,6 +314,10 @@ public:
  
   std::unique_ptr<std::jthread> actionThread;
 private:
+  bool m_preemptible = true;
+  double m_timeout;
+  int m_command_repeat_max;  
+
   std::string m_actionName;
   // std::function<std::invoke_result_t<Func, Args...>> m_function;
   // std::tuple<Args...> m_args;
@@ -324,15 +329,14 @@ private:
   ArmActionProgress m_progress;
   WS_STATUS m_actionResult;
  
-  double m_timeout;
-  int m_command_repeat_max;  
+
 
   bool m_stopRequest=false;
   bool m_idleFlag=true;
   
   bool m_actionEnabled=true;
   std::mutex m_actionMtx;
-  bool m_preemptible = true;
+  
 };
 
 
@@ -362,7 +366,7 @@ struct ArmSensorData {
   std::array<float,6> q_current_exact= {};
 
   std::array<int16_t,6> joint_speed_= {};
-  std::string speed_level_;
+
 };
  
 
@@ -372,12 +376,12 @@ class MonosArm {
   ~MonosArm();
   WS_STATUS Connect();
   WS_STATUS Connect(std::string portname,uint32_t baudrate);
-  WS_STATUS Disconnect();
+  void Disconnect();
   inline bool IsConnected() { return rtde_client_.isConnected(); }
 
   //Action Enable toggle
-  WS_STATUS disableActions();//A global switch to disable all the actions. Need to call enableActions() to enable all the actions again. 
-  WS_STATUS enableActions();
+  void disableActions();//A global switch to disable all the actions. Need to call enableActions() to enable all the actions again. 
+  void enableActions();
   inline void StopRecover(){enableActions();}
   
 
@@ -430,19 +434,26 @@ class MonosArm {
 
   // ArmFuncReturn OpenDoor();
   // ArmFuncReturn CloseDoor();
-  WS_STATUS MoveRoll(float target_pitch, double timeout = 15);
+
 
   //Action Move Pitch
+
+  WS_STATUS MovePitch(float target_pitch, double timeout=30);
+  void MovePitchAsync(float target_pitch,double timeout = 30);
+
+  WS_STATUS MovePitch(std::string actionName,float target_pitch,float pitch_deadzone,float pitch_delta_deadzone,double timeout = 30);
+  void MovePitchAsync(std::string actionName,float target_pitch,float pitch_deadzone,float pitch_delta_deadzone,double timeout = 30 );
+  
   WS_STATUS ErectUp(double timeout = 30);
   WS_STATUS BendDown(double timeout = 30);
-  WS_STATUS MovePitch(std::string actionName,float pitch_desired,float pitch_deadzone,float pitch_delta_deadzone,double timeout = 30);
 
-  void ErectUpAsync(double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
-  void BendDownAsync(double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
-  void MovePitchAsync(std::string actionName,float pitch_desired,float pitch_deadzone,double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
-  
+  void ErectUpAsync(double timeout = 30);
+  void BendDownAsync(double timeout = 30);
+   
+
   WS_STATUS PitchHold(bool pitchhold,double timeout=30);
-
+  void setPitchDeadzone(float pitch_deadzone);
+  void setPitchDeltaDeadzone(float pitch_delta_deadzone);
   WS_STATUS stopMovePitch();//simply call pitch hold
 
 
@@ -468,7 +479,8 @@ class MonosArm {
   WS_STATUS stopMoveJoint();
 
   WS_STATUS SetSpeed(std::string speed_level, double timeout=5);
-  WS_STATUS SetSpeedZ(int16_t z_speed,double timeout=5);
+
+  WS_STATUS SetSpeedZ(int16_t z_speed, double timeout = 5);
   WS_STATUS SetSpeed(std::string actionName,std::array<int16_t, 6> &speed,double timeout=5);
   inline std::array<int16_t,6> GetSpeed() { return m_arm_data_.joint_speed_; };
   
@@ -548,7 +560,7 @@ class MonosArm {
   bool m_flagDataUpdated=false;
   ArmSensorData m_arm_data_;
  
-
+  std::string m_speed_level_;
 
   float m_yaw_zero_offset_;
  
@@ -574,7 +586,7 @@ class MonosArm {
   float m_pitch_last=0;
   bool m_pitch_steady_flag=false;
   float m_pitch_delta=0;
-  float m_pitch_delta_deadzone=0.0005;
+  float m_pitch_delta_deadzone=0.003;
   int32_t m_pitch_steady_count=0;
   int32_t m_pitch_steady_count_max=50;
  

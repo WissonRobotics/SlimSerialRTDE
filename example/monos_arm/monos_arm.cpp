@@ -8,7 +8,6 @@
  */
 #include "monos_arm.h"
 #include <fmt/core.h>
-#include <fmt/ranges.h>
 #include <fmt/format.h>
 struct ArmParameters{
   std::string arm_port;
@@ -46,7 +45,7 @@ struct ArmParameters{
 
 
 ArmParameters amParameters={
-  .arm_port="/dev/ttyV1",
+  .arm_port="/tmp/ttyV1",
   .arm_baudrate=3000000,
   .Y_max=.8,
   .joint_dead_zone={0.0005,0.0005,0.0005,0.0005,0.1,2},
@@ -138,7 +137,7 @@ MonosArm::MonosArm():m_actionSingleCommand(false){
   link_H_ = {0.01154, 0.42953, 0.055, 0.0595, 0.4225};
   link_L_ = LinkH2L(0);
 
-  memset(&m_arm_data_,0,sizeof(m_arm_data_));
+  memset((uint8_t *)(&m_arm_data_),0,sizeof(m_arm_data_));
   m_arm_data_.T_current_ = ForwardKinematics(m_arm_data_.q_current_);
   m_arm_data_.T_desired_ = ForwardKinematics(m_arm_data_.q_desired_);
  
@@ -190,7 +189,7 @@ WS_STATUS MonosArm::Connect(std::string portname,uint32_t baudrate) {
       LOG_F(WARNING,"Timeout to update arm data");
     }
   
-    this->SetSpeed(amParameters.speed_level);
+    SetSpeed(m_speed_level_);
 
     // this->SendLightSignalCommand(LightSignalCommand::LightYellowOn);
 
@@ -200,14 +199,13 @@ WS_STATUS MonosArm::Connect(std::string portname,uint32_t baudrate) {
   }
 }
 
-WS_STATUS MonosArm::Disconnect() {
+void MonosArm::Disconnect() {
   if (IsConnected()) {
     rtde_client_.disconnect();
-  }
-  return WS_STATUS::WS_OK;
+  } 
 }
 
-WS_STATUS MonosArm::enableActions() {
+void MonosArm::enableActions() {
   m_enable_actions = true;
   m_actionMoveJoint.enable();
   m_actionMovePitch.enable();
@@ -218,7 +216,7 @@ WS_STATUS MonosArm::enableActions() {
 }
 
 
-WS_STATUS MonosArm::disableActions() {
+void MonosArm::disableActions() {
   m_enable_actions = false;
   m_actionMoveJoint.disable();
   m_actionMovePitch.disable();
@@ -682,7 +680,7 @@ WS_STATUS MonosArm::SetSpeed(std::string actionName,std::array<int16_t, 6> &spee
 return m_actionSingleCommand.act( actionName,
                         [&](ArmActionProgress &progress){
                           if(!IsConnected()){progress.message = fmt::format("Arm is disConnected");return false;}
-                          progress.message = fmt::format("target speed: {}",speed);
+                          progress.message = fmt::format("target speed:[{} {} {} {} {} {}]",speed[0],speed[1],speed[2],speed[3],speed[4],speed[5]);
                           return true;}, //start condition. 
                         [&](ArmActionProgress &progress){return false;}, //stop condition. 
                         [&](ArmActionProgress &progress){return false;}, //progress indication
@@ -699,6 +697,7 @@ WS_STATUS MonosArm::SetSpeedZ(int16_t z_speed,double timeout) {
 }
 
 WS_STATUS MonosArm::SetSpeed(std::string speed_level, double timeout) {
+  m_speed_level_ = speed_level;
     if (speed_level == "high") {
       std::array<int16_t,6> speedvalue = {1000, 1200, 1200, 125, 0, 0};
       m_arm_data_.joint_speed_ = speedvalue;
@@ -714,14 +713,22 @@ WS_STATUS MonosArm::SetSpeed(std::string speed_level, double timeout) {
     return SetSpeed("Set Speed Level "+speed_level, m_arm_data_.joint_speed_,timeout);
 }
  
- WS_STATUS MonosArm::MoveRoll(float target_pitch, double timeout) {
-  return MovePitch("MoveRoll(Pitch)",target_pitch,0.025, 0.003,timeout);
+ 
+
+ WS_STATUS MonosArm::MovePitch(float target_pitch, double timeout) {
+  return MovePitch("MovePitch",target_pitch,m_pitch_deadzone, m_pitch_delta_deadzone,timeout);
+}
+
+ 
+void MonosArm::MovePitchAsync(float target_pitch,double timeout){
+  LOG_F(INFO, "[MonosArm] MovePitchAsync");
+  MovePitchAsync("MovePitchAsync",target_pitch,m_pitch_deadzone, m_pitch_delta_deadzone,timeout);
 }
 
 
 WS_STATUS MonosArm::MovePitch(std::string actionName,float pitch_desired,float pitch_deadzone,float pitch_delta_deadzone,double timeout){
   m_pitch_delta_deadzone = pitch_delta_deadzone;
-  m_actionMovePitch.act(
+  return m_actionMovePitch.act(
           actionName,
           [&](ArmActionProgress &progress){//start condition
               if(!IsConnected()){
@@ -767,28 +774,35 @@ WS_STATUS MonosArm::MovePitch(std::string actionName,float pitch_desired,float p
           std::bind(&Maxwell_SoftArm_SerialClient::commandPitch, &rtde_client_, std::placeholders::_1),
           pitch_desired);
 }
+void MonosArm::MovePitchAsync(std::string actionName,float pitch_desired,float pitch_deadzone,float pitch_delta_deadzone,double timeout){
 
-void MonosArm::MovePitchAsync(std::string actionName,float pitch_desired,float pitch_deadzone,double timeout,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
-  m_actionMovePitch.setActionCompleteCallback(std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
-  m_actionMovePitch.actionThread = std::make_unique<std::jthread>([&,timeout](){
-      MovePitch(actionName,pitch_desired,pitch_deadzone,timeout);
+  m_actionMovePitch.actionThread = std::make_unique<std::jthread>([&,actionName,pitch_desired,pitch_deadzone,pitch_delta_deadzone,timeout](){
+      MovePitch(actionName,pitch_desired,pitch_deadzone,pitch_delta_deadzone,timeout);
     }
   );
 }
 
+// void MonosArm::MovePitchAsync(std::string actionName,float pitch_desired,float pitch_deadzone,float pitch_delta_deadzone,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback,double timeout){
+//   m_actionMovePitch.setActionCompleteCallback(std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
+//   m_actionMovePitch.actionThread = std::make_unique<std::jthread>([&,timeout](){
+//       MovePitch(actionName,pitch_desired,pitch_deadzone,pitch_delta_deadzone,timeout);
+//     }
+//   );
+// }
+
 WS_STATUS MonosArm::ErectUp(double timeout){
-  return MovePitch("ErectUp",0,m_pitch_deadzone,timeout);
+  return MovePitch("ErectUp",0,m_pitch_deadzone,m_pitch_delta_deadzone,timeout);
 }
-void MonosArm::ErectUpAsync(double timeout,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
-    MovePitchAsync("ErectUpAsync",0,m_pitch_deadzone,timeout,std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
+void MonosArm::ErectUpAsync(double timeout){
+    MovePitchAsync("ErectUpAsync",0,m_pitch_deadzone,m_pitch_delta_deadzone,timeout);
 }
  
 
 WS_STATUS MonosArm::BendDown(double timeout){
-  return MovePitch("BendDown",M_PI_2,m_pitch_deadzone,timeout);
+  return MovePitch("BendDown",M_PI_2,m_pitch_deadzone,m_pitch_delta_deadzone,timeout);
 }
-void MonosArm::BendDownAsync(double timeout,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
-     MovePitchAsync("BendDownAsync",M_PI_2,m_pitch_deadzone,timeout,std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
+void MonosArm::BendDownAsync(double timeout){
+     MovePitchAsync("BendDownAsync",M_PI_2,m_pitch_deadzone,m_pitch_delta_deadzone,timeout);
 }
 
 
@@ -804,29 +818,30 @@ WS_STATUS MonosArm::PitchHold(bool pitchhold,double timeout){
                         );
 }
 
+ void MonosArm::setPitchDeadzone(float pitch_deadzone){
+   m_pitch_deadzone = pitch_deadzone;
+ }
+ void MonosArm::setPitchDeltaDeadzone(float pitch_delta_deadzone){
+   m_pitch_delta_deadzone = pitch_delta_deadzone;
+ }
+
 WS_STATUS MonosArm::stopMovePitch(){
   LOG_F(INFO, "[MonosArm] Stop MovePitch");
-  if(PitchHold(true)!=WS_OK){
-    //shouldn't be here
- 
-    return WS_FAIL;
-  }
-  else{
-    return WS_OK;
-  }
- 
+  return PitchHold(true);
+
 }
 
 
 
 
 
-// bool MonosArm::WithinJointDeadZone(std::array<float,6> joint_error,float pitchDeadzone) {
-//   if (std::abs(joint_error[0]) < amParameters.joint_dead_zone[0] &&
-//       std::abs(joint_error[1]) < amParameters.joint_dead_zone[1] &&
-//       std::abs(joint_error[2]) < amParameters.joint_dead_zone[2] &&
-//       std::abs(joint_error[3]) < amParameters.joint_dead_zone[3] &&
-//       std::abs(joint_error[4]) < (pitchDeadzone>0?pitchDeadzone:amParameters.joint_dead_zone[4])) {
+// bool MonosArm::WithinJointDeadZone(std::array<float,6> &joint_error,float pitchDeadzone) {
+//   pitchDeadzone =  pitchDeadzone>0?pitchDeadzone:CONFIG_ARM_PARAM.joint_dead_zone[4];
+//   if (std::abs(joint_error[0]) < CONFIG_ARM_PARAM.joint_dead_zone[0] &&
+//       std::abs(joint_error[1]) < CONFIG_ARM_PARAM.joint_dead_zone[1] &&
+//       std::abs(joint_error[2]) < CONFIG_ARM_PARAM.joint_dead_zone[2] &&
+//       std::abs(joint_error[3]) < CONFIG_ARM_PARAM.joint_dead_zone[3] &&
+//       geWithinPitchCount(pitchDeadzone) > 0) {
 //     return true;
 //   } else {
 //     return false;
@@ -894,17 +909,17 @@ void MonosArm::addLoggingFile(std::string logFileName,std::string logFileLevel){
 void MonosArm::update(){
 
       //update sensor data from serial RTDE
-      m_arm_data_.laser_distance_mm = rtde_client_.getLaserDistance();
+      m_arm_data_.laser_distance_mm = rtde_client_.sensorData.laserDistance;
       m_arm_data_.gun_guider_distance = m_arm_data_.laser_distance_mm[0] * 0.001;
-      m_arm_data_.pressure.pressureArray = rtde_client_.getPressure();
-      m_arm_data_.p_source = rtde_client_.getPSource();
-      m_arm_data_.p_sink = rtde_client_.getPSink();
+      m_arm_data_.pressure.pressureArray = rtde_client_.sensorData.pressure;
+      m_arm_data_.p_source = rtde_client_.sensorData.pSource;
+      m_arm_data_.p_sink = rtde_client_.sensorData.pSink;
        
-      m_arm_data_.io_status = rtde_client_.getIOStatus();
-      m_arm_data_.rotation_encoder = rtde_client_.getRotationEncoder();
-      m_arm_data_.ultra_sonic = rtde_client_.getUltraSonic();
-      m_arm_data_.errorList = rtde_client_.getErrorList();
-      m_arm_data_.q_current_ = rtde_client_.getJointf();
+      m_arm_data_.io_status = rtde_client_.sensorData.IOFlags;
+      m_arm_data_.rotation_encoder = rtde_client_.sensorData.rotationEncoder;
+      m_arm_data_.ultra_sonic = rtde_client_.sensorData.ultraSonic;
+      m_arm_data_.errorList = rtde_client_.sensorData.errorList;
+      m_arm_data_.q_current_ = rtde_client_.sensorData.jointStatef;
 
       //update FK
       m_arm_data_.T_current_ = ForwardKinematics(m_arm_data_.q_current_);
