@@ -97,7 +97,7 @@ public:
  
   
 
-	uint64_t m_totalRxFrames = 0;
+	int m_totalRxFrames = 0;
 	uint64_t m_lastTxRxTime = 0;
 
 
@@ -351,7 +351,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(uint8_t *pDat
 		LOG_F(1,"[TransmitReceive] [Success]");
 	}
 	else{
-		LOG_F(WARNING,"[TransmitReceive] [Timeout]");
+		LOG_F(1,"[TransmitReceive] [Timeout]");
 	}
 
 	return ret;
@@ -520,8 +520,12 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 										continue;
 									}
 									else {//bad crc
+
 										LOG_F(WARNING, "Bad CRC. calculated 0x%2x, recevied 0x%2x.", circularBuffer.calculateCRC(expectedFrameBytes - 2), circularBuffer.peekAt_U16(expectedFrameBytes - 2));
-										
+										uint8_t buf[4096];
+										uint32_t readlen = circularBuffer.peek(buf, expectedFrameBytes);
+										LOG_F(WARNING, "The rx frame content: %s", toHexString(&buf[0],readlen).c_str());//display bad frame
+
 										int discardN = circularBuffer.discardUntilNext(default_headers[0]);
 										remainingBytes -= discardN;
 										LOG_F(WARNING, "Discarding %d bytes to find %x", discardN, default_headers[0]);
@@ -1000,19 +1004,19 @@ uint32_t SlimSerialRTDE::availableBytes() {
 	return pimpl_->circularBuffer.availableBytes();
 }
 
-uint64_t SlimSerialRTDE::getTotalTxFrames() {
+int SlimSerialRTDE::getTotalTxFrames() {
 	return pimpl_->m_totalTxFrames;
 }
 
-uint64_t SlimSerialRTDE::getTotalRxFrames() {
+int SlimSerialRTDE::getTotalRxFrames() {
 	return pimpl_->m_totalRxFrames;
 }
 
-uint64_t SlimSerialRTDE::getTotalTxBytes() {
+int SlimSerialRTDE::getTotalTxBytes() {
 	return pimpl_->m_totalTxBytes;
 }
 
-uint64_t SlimSerialRTDE::getTotalRxBytes() {
+int SlimSerialRTDE::getTotalRxBytes() {
 	return pimpl_->m_totalRxBytes;
 }
 

@@ -15,7 +15,7 @@ enum WS_STATUS {
 };
 
 
-#define INTERNAL_MAX_FRAME_SIZE 1024
+#define INTERNAL_MAX_FRAME_SIZE 4096
 #pragma pack(1)
 typedef struct SLIMSERIAL_FRAME_TYPE_0_TAG {
 	union {
@@ -163,10 +163,10 @@ public:
 	uint32_t availableBytes();
 
 
-	uint64_t getTotalTxFrames();
-	uint64_t getTotalRxFrames();
-	uint64_t getTotalTxBytes();
-	uint64_t getTotalRxBytes();
+	int getTotalTxFrames();
+	int getTotalRxFrames();
+	int getTotalTxBytes();
+	int getTotalRxBytes();
  
 	uint64_t getLastTxRxFrameTime();
 	uint64_t getTimeUTC();

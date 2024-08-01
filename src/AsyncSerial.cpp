@@ -416,4 +416,3 @@ void AsyncSerial::resetTxRxCount() {
     m_totalRxBytes = 0;
     m_totalTxBytes = 0;
 }
- 

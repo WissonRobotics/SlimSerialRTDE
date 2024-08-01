@@ -65,7 +65,7 @@ struct MaxwellSoftArmSensorData
     std::array<int16_t, 8> pressure;
     std::array<int16_t, 1> pSource;
     std::array<int16_t, 1> pSink;
-    std::array<uint8_t, 8> IOFlags;// = pinStatus + limitStatus
+    std::array<uint8_t, 8> IOFlags;// = pinStatus + limitStatus + gunStatus
     std::array<int16_t, 2> laserDistance;
     std::array<int16_t, 4> rotationEncoder;
     std::array<int16_t, 3> ultraSonic;
@@ -85,7 +85,7 @@ struct MaxwellSoftArmCommandData
 
 inline constexpr uint16_t defaultFrameTxRxPeriodMs = 10; 
 
-inline constexpr uint16_t defaultCommandTimeoutPeriodMs = 2*defaultFrameTxRxPeriodMs; 
+inline constexpr uint16_t defaultCommandTimeoutPeriodMs = 3*defaultFrameTxRxPeriodMs; 
  
 
 class Maxwell_SoftArm_SerialClient : public SlimSerialRTDE
@@ -93,9 +93,13 @@ class Maxwell_SoftArm_SerialClient : public SlimSerialRTDE
 public:
     Maxwell_SoftArm_SerialClient();
     ~Maxwell_SoftArm_SerialClient();
- 
     WS_STATUS connect(std::string portname,uint32_t baudrate);
+    bool isAlive();
+    uint32_t getNotAliveTime();
+    int m_totalTxFrames_client;
+    int m_totalRxFrames_client;
     void run();
+
     std::function<void(uint8_t *pdata, uint32_t databytes)> monosFrameCallbackFunc;
     void monosFrameCallback(uint8_t *pdata, uint32_t databytes);
     void setYawOffset(float yaw_offset);
@@ -103,7 +107,7 @@ public:
     std::function<void()> updateCallback;
     void setUpdateCallback(std::function<void()> cb);
 
-    std::vector<uint8_t> assembleTxFrame(SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
+    std::vector<uint8_t> assembleTxFrame(SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
 
     // std::array<uint8_t, 8> &getIOStatus() { return sensorData.IOFlags; }; 
     // std::array<int16_t, 2> &getLaserDistance() { return sensorData.laserDistance; };
@@ -126,7 +130,6 @@ public:
     std::vector<uint16_t> getErrorList() {std::vector<uint16_t> vec(sensorData.errorList.begin(),sensorData.errorList.end()); return vec; }; 
     uint8_t               getGunStatus(){return sensorData.IOFlags[5];};
     // WS_STATUS commandQuery(uint32_t timeout = 50);
-
 
     
 
@@ -182,7 +185,12 @@ public:
     MaxwellSoftArmSensorData sensorData;
     uint16_t m_FrameTxRxPeriodMs = defaultFrameTxRxPeriodMs;
     uint16_t m_CommandTimeoutPeriodMs = defaultCommandTimeoutPeriodMs;
- 
+    int timeoutCount=0;
+    int frameLostCount=0;
+    int notAliveCount=0;
+    int notAliveTime=0;
+    int m_NAKTimeMax=0;
+
 protected:
  
     float yaw_offset_;
@@ -200,19 +208,24 @@ protected:
         uint16_t framesize;
         WS_STATUS commandResult;
     } commandFrame;
-    // uint64_t commandFrameIndex = 0;
-    // dp::thread_safe_queue<CommandFrameMeta> commandQueue;
+ 
  
 
     bool commandInProgress;
-    // uint64_t commandInProgressIndex;
+ 
     std::mutex commandMtx;
-    // std::condition_variable commandCV;
+ 
     WS_STATUS m_commandResult; 
 
     std::unique_ptr<std::jthread> communicationThread;
+    
 
-    uint64_t communicationTimeoutCount;
+
+
+    int m_NAKTime=0;
+    int notAliveNAKTimeThreshold=200;
+ 
+    bool communication_is_alive;
 
     LightSignalCommand m_signal_light_command;
 

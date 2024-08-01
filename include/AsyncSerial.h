@@ -57,9 +57,9 @@ public:
 	inline uint64_t getTimeUTC() {
 		return std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
 	};
-	uint64_t m_totalRxBytes=0;
-	uint64_t m_totalTxBytes=0; 
-	uint64_t m_totalTxFrames=0;
+	int m_totalRxBytes=0;
+	int m_totalTxBytes=0; 
+	int m_totalTxFrames=0;
 	SLIM_CURCULAR_BUFFER circularBuffer;
 private:
 
@@ -93,7 +93,8 @@ private:
 	std::condition_variable reconnectCV;
 
 	 
-	std::function<void(void)> rxDataCallback; 
+	std::function<void(void)> rxDataCallback;
+	//dp::thread_safe_queue<SpeakMsgMeta> msgQueue;
 
 	void startAutoConnect(int autoReconnectTimeMs = 1000);
 
@@ -112,6 +113,3 @@ private:
 
 
 };
-
-
- 

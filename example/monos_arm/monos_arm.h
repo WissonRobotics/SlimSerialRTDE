@@ -27,6 +27,7 @@
 #include "Maxwell_SoftArm_SerialClient.h"
 #include <source_location>
 #include "loguru.hpp" 
+
 typedef Eigen::Matrix4f TransFormMatrix;
  
 
@@ -99,7 +100,7 @@ public:
   ArmAction(bool preemptible=true)
   :m_preemptible(preemptible),
   m_timeout(60),
-  m_command_repeat_max(50){
+  m_command_repeat_max(20){
     reset();
   }
 
@@ -115,7 +116,6 @@ public:
  
   template <typename Func, typename... Args>
   WS_STATUS act(std::string actionName,std::function<bool(ArmActionProgress &progress)> &&actionStartCondition,std::function<bool(ArmActionProgress &progress)> &&actionStopCondition,std::function<bool(ArmActionProgress &progress)> &&actionProgressIndication, std::function<bool(ArmActionProgress &progress)> &&actionCompleteCondition,double timeout_max, Func&& actionFunc, Args&&... actionArgs){
-    LOG_F(INFO, "Enter Action");
     std::unique_lock lock_(m_actionMtx);
     if(m_preemptible){
       lock_.unlock();
@@ -317,7 +317,6 @@ private:
   bool m_preemptible = true;
   double m_timeout;
   int m_command_repeat_max;  
-
   std::string m_actionName;
   // std::function<std::invoke_result_t<Func, Args...>> m_function;
   // std::tuple<Args...> m_args;
@@ -336,7 +335,7 @@ private:
   
   bool m_actionEnabled=true;
   std::mutex m_actionMtx;
-  
+
 };
 
 
@@ -377,8 +376,9 @@ class MonosArm {
   WS_STATUS Connect();
   WS_STATUS Connect(std::string portname,uint32_t baudrate);
   void Disconnect();
-  inline bool IsConnected() { return rtde_client_.isConnected(); }
-
+  bool IsConnected() { return rtde_client_.isConnected(); }
+  bool isAlive() { return rtde_client_.isAlive(); }
+  double getNotAliveTime(){ return rtde_client_.getNotAliveTime()*0.001f;};
   //Action Enable toggle
   void disableActions();//A global switch to disable all the actions. Need to call enableActions() to enable all the actions again. 
   void enableActions();
@@ -427,21 +427,12 @@ class MonosArm {
   WS_STATUS chamberMoveAtPosition(std::string actionName,int pressureIndex,int targetPressure,int laserIndex,int targetPosition,bool flagLargerThan,double timeout=30);
   template<size_t N>
   WS_STATUS chamberMoveAtIOFlags(std::string actionName,int pressureIndex,int targetPressure,std::array<uint8_t,N> &ioIndexes,std::array<uint8_t,N> &ioTargetStates,double timeout);
-  
-
  
-  // ArmFuncReturn ElongateHold();
-
-  // ArmFuncReturn OpenDoor();
-  // ArmFuncReturn CloseDoor();
-
-
   //Action Move Pitch
-
-  WS_STATUS MovePitch(float target_pitch, double timeout=30);
-  void MovePitchAsync(float target_pitch,double timeout = 30);
-
+  WS_STATUS MovePitch(float target_pitch, double timeout=30); 
   WS_STATUS MovePitch(std::string actionName,float target_pitch,float pitch_deadzone,float pitch_delta_deadzone,double timeout = 30);
+
+  void MovePitchAsync(float target_pitch,double timeout = 30); 
   void MovePitchAsync(std::string actionName,float target_pitch,float pitch_deadzone,float pitch_delta_deadzone,double timeout = 30 );
   
   WS_STATUS ErectUp(double timeout = 30);
@@ -452,8 +443,8 @@ class MonosArm {
    
 
   WS_STATUS PitchHold(bool pitchhold,double timeout=30);
-  void setPitchDeadzone(float pitch_deadzone);
-  void setPitchDeltaDeadzone(float pitch_delta_deadzone);
+  void setDefaultPitchDeadzone(float pitch_deadzone);
+  void setDefaultPitchDeltaDeadzone(float pitch_delta_deadzone);
   WS_STATUS stopMovePitch();//simply call pitch hold
 
 
@@ -479,14 +470,13 @@ class MonosArm {
   WS_STATUS stopMoveJoint();
 
   WS_STATUS SetSpeed(std::string speed_level, double timeout=5);
-
-  WS_STATUS SetSpeedZ(int16_t z_speed, double timeout = 5);
+  WS_STATUS SetSpeedZ(int16_t z_speed,double timeout=5);
   WS_STATUS SetSpeed(std::string actionName,std::array<int16_t, 6> &speed,double timeout=5);
   inline std::array<int16_t,6> GetSpeed() { return m_arm_data_.joint_speed_; };
-  
-
-  bool WithinJointDeadZone(std::array<float,6>&,float pitchDeadzone=-1);
-   bool VerifyPoseIsWithin(std::array<float,6> poses);
+ 
+  bool WithinJointDeadZone(std::array<float,6>& joint_error,float pitchDeadzone);
+  bool WithinJointDeadZone(std::array<float,6>& joint_error);
+  bool VerifyPoseIsWithin(std::array<float,6> poses);
   bool VerifyJointIsWithin(std::array<float,6> joints);
   
   WS_STATUS MoveLineByIK(
@@ -529,7 +519,7 @@ class MonosArm {
     }
     return m_pitch_steady_count;
   }
-  inline int32_t geWithinPitchCount(float pitch_deadzone){
+  inline int32_t getWithinPitchCount(float pitch_deadzone){
     if(m_pitch_deadzone != pitch_deadzone){
       m_pitch_deadzone = pitch_deadzone;
       m_pitch_within_count = 0;
@@ -539,7 +529,8 @@ class MonosArm {
   inline bool isSteadyPressure(int pressureIndex){
     return  (m_pressure_steady_count.pressureArray[pressureIndex]>=m_pressure_steady_count_max)?1:0;
   }
- 
+  
+  ArmSensorData m_arm_data_;
   private:
  
 
@@ -558,10 +549,10 @@ class MonosArm {
   unsigned int baudrate_;
  
   bool m_flagDataUpdated=false;
-  ArmSensorData m_arm_data_;
- 
-  std::string m_speed_level_;
 
+ 
+
+  std::string m_speed_level;
   float m_yaw_zero_offset_;
  
   std::vector<float> link_L_;
@@ -578,7 +569,9 @@ class MonosArm {
 
   //pitch within check
   bool m_pitch_within_flag=false;
-  float m_pitch_deadzone=0.005;
+  float m_pitch_deadzone_0degree=0.0174;
+  float m_pitch_deadzone=0.082;
+  float m_pitch_deadzone_default=0.082;
   float m_pitch_within_count=0;
   float m_pitch_within_count_max=20;
 
@@ -586,7 +579,8 @@ class MonosArm {
   float m_pitch_last=0;
   bool m_pitch_steady_flag=false;
   float m_pitch_delta=0;
-  float m_pitch_delta_deadzone=0.003;
+  float m_pitch_delta_deadzone=0.001;
+  float m_pitch_delta_deadzone_default=0.001;
   int32_t m_pitch_steady_count=0;
   int32_t m_pitch_steady_count_max=50;
  

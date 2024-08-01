@@ -28,11 +28,7 @@ Maxwell_SoftArm_SerialClient::Maxwell_SoftArm_SerialClient() : SlimSerialRTDE() 
     queryFrame[i] = qframe[i];
   }
  
- 
-
-
 }
- 
 WS_STATUS Maxwell_SoftArm_SerialClient::connect(std::string portname, uint32_t baudrate)
 {
     if(SlimSerialRTDE::connect(portname,baudrate)==WS_OK){
@@ -44,8 +40,15 @@ WS_STATUS Maxwell_SoftArm_SerialClient::connect(std::string portname, uint32_t b
     }
     
 }
-void Maxwell_SoftArm_SerialClient::run()
-{
+bool Maxwell_SoftArm_SerialClient::isAlive(){
+  return communication_is_alive;
+}
+uint32_t Maxwell_SoftArm_SerialClient::getNotAliveTime(){
+  return m_NAKTime;
+}
+
+
+void Maxwell_SoftArm_SerialClient::run(){
     if (communicationThread)
     {
         communicationThread->request_stop();
@@ -54,52 +57,87 @@ void Maxwell_SoftArm_SerialClient::run()
     communicationThread = std::make_unique<std::jthread>(
         [this](std::stop_token stop_token)
         {
+          uint32_t printConnected=0;
+          uint32_t printAlive=0;
+
             while (!stop_token.stop_requested())
             {
-                auto const timeoutPoint = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_FrameTxRxPeriodMs);
-                commandInProgress = true;
+              auto const timeoutPoint = std::chrono::steady_clock::now() + std::chrono::milliseconds(m_FrameTxRxPeriodMs);
+              commandInProgress=true;  
 
-                if (isConnected())
-                {
-                    bool isQuery = true;
-
-                    if (commandFrame.commandResult == WS_NONE)
-                    {
-                        m_commandResult = transmitReceiveFrame(&(commandFrame.frame[0]), commandFrame.framesize, m_FrameTxRxPeriodMs);
-                        commandFrame.commandResult = m_commandResult;
-                        isQuery = false;
-                    }
-                    else{
-                        m_commandResult = transmitReceiveFrame(&queryFrame[0], queryFrameSize, m_FrameTxRxPeriodMs);
-                    }
-
-                    if (m_commandResult != WS_OK)
-                    {
-                        communicationTimeoutCount++;
-                        if (!isQuery)
-                        {
-                            LOG_F(WARNING, "Timeout to command");
-                        }
-                        else
-                        {
-                            LOG_F(WARNING, "Timeout to query");
-                        }
-                        timeoutCallback();
-                    }
+              if(isConnected()){
+                bool isQuery=true;
+                
+                if(commandFrame.commandResult==WS_NONE){
+                    m_commandResult=transmitReceiveFrame(&(commandFrame.frame[0]),commandFrame.framesize,m_FrameTxRxPeriodMs);
+                    commandFrame.commandResult=m_commandResult;
+                    isQuery=false;
                 }
-                else
-                {
-                    m_commandResult = WS_ABORT;
-                    commandFrame.commandResult = m_commandResult;
-                    LOG_F(WARNING, "Arm not connected.");
+                else{
+                  m_commandResult=transmitReceiveFrame(&queryFrame[0],queryFrameSize,m_FrameTxRxPeriodMs);
                 }
 
-                commandInProgress = false;
-                std::this_thread::sleep_until(timeoutPoint);
+                if(m_commandResult!=WS_OK){
+                  timeoutCount++;
+                  m_NAKTime+=m_FrameTxRxPeriodMs;
+                  if(!isQuery){
+                    LOG_F(1,"Timeout to command");
+                  }
+                  else{
+                    LOG_F(1,"Timeout to query");
+                  }
+                  timeoutCallback();
+                }
+                else{
+                  m_NAKTime=0;
+                }
+                m_totalTxFrames_client = getTotalTxFrames();
+                m_totalRxFrames_client = getTotalRxFrames();
+                frameLostCount = m_totalTxFrames_client-m_totalRxFrames_client;
+
+                if(m_NAKTime>m_NAKTimeMax){
+                  m_NAKTimeMax=m_NAKTime;
+                }
+
+                if(m_NAKTime>=notAliveNAKTimeThreshold){
+                  communication_is_alive = false;
+                  notAliveTime = m_NAKTime;
+                  notAliveCount++;
+                  printAlive++;
+                  if(printAlive==1){
+                    LOG_F(WARNING,"Arm is not responding for %d ms",notAliveTime);
+                  }
+                  if(printAlive>=100){
+                    printAlive=0;
+                  }
+                }
+                else{
+                  printAlive=0;
+                  communication_is_alive = true;
+                }
+                printConnected=0;
+              } 
+              else{
+                m_commandResult = WS_ABORT;
+                commandFrame.commandResult = m_commandResult;
+                printConnected++;
+                if(printConnected>=100){
+                  LOG_F(WARNING,"Arm is not connected.");
+                  printConnected=0;
+                }
+              }
+
+
+
+
+              commandInProgress=false;
+ 
+ 
+              std::this_thread::sleep_until(timeoutPoint);
             };
-        });
+        }
+    );
 }
-
 Maxwell_SoftArm_SerialClient::~Maxwell_SoftArm_SerialClient(){
  
 
@@ -175,7 +213,7 @@ void Maxwell_SoftArm_SerialClient::setUpdateCallback(std::function<void()>  cb){
 void Maxwell_SoftArm_SerialClient::setYawOffset(float yaw_offset) { this->yaw_offset_ = yaw_offset; }
  
 std::vector<uint8_t> Maxwell_SoftArm_SerialClient::assembleTxFrame(
-SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
+SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
   
 // unit in m and rad
 WS_STATUS Maxwell_SoftArm_SerialClient::commandJoint(std::array<float,6> &jointd) {
@@ -427,8 +465,7 @@ WS_STATUS Maxwell_SoftArm_SerialClient::commandChamber(int pressureIndex,int16_t
      return command(axisChosen.axisChosenU16, axisConfig.axisConfigU16, 0, 0, 0, 0, 0, 0, 0,0, 0, 0, targetPressure, 0, 0);
     break;
 
-    default:
-      
+  default:
     break;
   }  
   return WS_ERROR;
