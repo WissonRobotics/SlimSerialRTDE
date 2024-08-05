@@ -218,7 +218,7 @@ TARGET_LINK_LIBRARIES( speaker
  
 ############################ End example speaker  EXE *******************
 
-find_package(jsoncpp REQUIRED) 
+# find_package(jsoncpp REQUIRED) 
 
 
 
