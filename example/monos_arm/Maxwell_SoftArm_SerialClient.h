@@ -128,7 +128,6 @@ public:
     std::vector<int16_t> getRotationEncoder() {std::vector<int16_t> vec(sensorData.rotationEncoder.begin(),sensorData.rotationEncoder.end()); return vec; }; 
     std::vector<int16_t> getUltraSonic() {std::vector<int16_t> vec(sensorData.ultraSonic.begin(),sensorData.ultraSonic.end()); return vec; }; 
     std::vector<uint16_t> getErrorList() {std::vector<uint16_t> vec(sensorData.errorList.begin(),sensorData.errorList.end()); return vec; }; 
-    uint8_t               getGunStatus(){return sensorData.IOFlags[5];};
     // WS_STATUS commandQuery(uint32_t timeout = 50);
 
     

@@ -99,13 +99,14 @@ union IOCMD {
 };
 union IOFlagsUnion{
   struct {
-    uint16_t pin1 : 1;
-    uint16_t pin2 : 1;
-    uint16_t limit1 : 1;
-    uint16_t limit2 : 1;
-    uint16_t limit3 : 1;
-    uint16_t gun : 1;
-    uint16_t reserved : 10;
+    uint16_t attach_status_0 : 1;
+    uint16_t attach_status_1 : 1;
+    uint16_t shift_away_status : 1;
+    uint16_t shift_central_status : 1;
+    uint16_t gripper_close_status : 1;
+    uint16_t gun_status_0 : 1;
+    uint16_t gun_status_1 : 1;
+    uint16_t reserved : 9;
   };
   uint16_t IOU16;
 };

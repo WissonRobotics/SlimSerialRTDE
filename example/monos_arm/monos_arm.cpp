@@ -9,125 +9,7 @@
 #include "monos_arm.h"
 #include <fmt/core.h>
 #include <fmt/format.h>
-struct ArmParameters{
-  std::string arm_port;
-  unsigned int arm_baudrate;
-  float Y_max;
-  std::vector<float> joint_dead_zone;
-  std::vector<float> linkH;
-  bool yaw_zero_offset_enable;
-  float yaw_zero_offset;
-  std::string speed_level;
-
-  int guide_elongate_value;
-  int gun_elongate_value;
-  int cable_contract_value;
-  int gripper_shift_central_value;
-  int gun_lock_value;
-  int gripper_close_value;
-
-  int guide_contract_value;
-  int gun_contract_value;
-  int cable_elongate_value;
-  int gripper_shift_away_value;
-  int gun_unlock_value;
-  int gripper_open_value;
-
-  int door_open_value_send;
-  int door_open_value_check;
-  double door_open_timeout;
-  int door_close_value_send;
-  int door_close_value_check;
-  double door_close_timeout;
-  std::string carm;
-};
-
-
-
-ArmParameters amParameters={
-  .arm_port="/tmp/ttyV1",
-  .arm_baudrate=3000000,
-  .Y_max=.8,
-  .joint_dead_zone={0.0005,0.0005,0.0005,0.0005,0.1,2},
- 
-  .yaw_zero_offset_enable=true,
-  .yaw_zero_offset=0.76,
-  .speed_level="middle",
-
-  .guide_elongate_value=600,
-  .gun_elongate_value=800,
-  .cable_contract_value=1200,
-  .gripper_shift_central_value=1400,
-  .gun_lock_value=-600,
-  .gripper_close_value=-500,
-
-  .guide_contract_value=-700,
-  .gun_contract_value=-800,
-  .cable_elongate_value=-600,
-  .gripper_shift_away_value=-600,
-  .gun_unlock_value=800,
-  .gripper_open_value=500,
- 
-};
-
-
-typedef struct {
-  int alignment_laser_original;
-  int alignment_well_distance;
-  int alignment_well_timeout;
-  int detached_well_distance;
-  int attached_well_distance;
-  bool auto_detach;
-} GunActionParameters;
-GunActionParameters gunActionParameters={
-  .alignment_laser_original = 82,
-  .alignment_well_distance = 156,
-  .alignment_well_timeout=15000,
-  .detached_well_distance = 68,
-  .attached_well_distance=220,
-  .auto_detach = true,
-};
-
-
-typedef struct {
-  float local_detection_yaw;
-  //   float local_detection_pitch;
-  // float attach_z_axis_adjust;
-  float attach_z_axis_adjust_in_while;
-  float attach_z_axis_adjust_before_while;
-  float attach_x_axis_adjust_before_while;
-  float detach_z_axis_adjust_before_plug;
-  //   float attach_z_axis_dancing_step;
-  //   float attach_z_axis_dancing_half_period;
-  //   float detach_z_axis_adjust;
-  //   float detach_z_axis_dancing_step;
-  //   float detach_z_axis_dancing_half_period;
-  //   float elongate_pitch;
-  //   float elongate_speed;
-
-  int gun_elongate_distance_to_grasp;
-  int gun_elongate_distance_to_insert;
-  int time_start_attach_delay;
-
-  int time_gun_elongate_delay;
-  int time_gun_contract_delay;
-  int time_gripper_shift_delay;
-  int time_guide_elongate_delay;
-  int time_gripper_grasp_delay;
-  int time_arm_move_finish_delay;
-
-  int aligned_well_detect_box_result_x0;
-  int aligned_well_detect_box_result_x0_error_threshold;
-  int aligned_well_detect_box_result_y1;
-  int aligned_well_detect_box_result_y1_error_threshold;
-
-} CompensationParameters;
-
-CompensationParameters compensationParameters={
- .time_gun_contract_delay = 15000,
- .time_guide_elongate_delay=2000,
-
-};
+#include "monos_arm_config.h"
 
 MonosArm::MonosArm():m_actionSingleCommand(false){
 
@@ -379,13 +261,18 @@ WS_STATUS MonosArm::GripperShiftAway(double timeout){
 WS_STATUS MonosArm::GunLock(double timeout){
   std::array<uint8_t,1> ioIndexes={0};
   std::array<uint8_t,1> ioTargetStates{0};
-  return chamberMoveAtIOFlags("GunLock",IndexPressureLock,CONFIG_ARM_PARAM.gun_lock_value,ioIndexes,ioTargetStates,timeout);
+  //return chamberMoveAtIOFlags("GunLock",IndexPressureLock,CONFIG_ARM_PARAM.gun_lock_value,ioIndexes,ioTargetStates,timeout);
+  WS_STATUS ret = chamberMoveAtPressure("GunLock",IndexPressureLock,CONFIG_ARM_PARAM.gun_lock_value,timeout);
+  return (m_arm_data_.io_status[ioIndexes[0]]==ioTargetStates[0])?WS_OK:WS_FAIL;
+ 
 }
  
 WS_STATUS MonosArm::GunUnlock(double timeout){
   std::array<uint8_t,1> ioIndexes={0};
   std::array<uint8_t,1> ioTargetStates{1};
-  return chamberMoveAtIOFlags("GunUnlock",IndexPressureLock,CONFIG_ARM_PARAM.gun_unlock_value,ioIndexes,ioTargetStates,timeout);
+  // return chamberMoveAtIOFlags("GunUnlock",IndexPressureLock,CONFIG_ARM_PARAM.gun_unlock_value,ioIndexes,ioTargetStates,timeout);
+  auto ret = chamberMoveAtPressure("GunUnlock",IndexPressureLock,CONFIG_ARM_PARAM.gun_unlock_value,timeout);
+  return (m_arm_data_.io_status[ioIndexes[0]]==ioTargetStates[0])?WS_OK:WS_FAIL;
 }
 
 
@@ -408,7 +295,7 @@ WS_STATUS MonosArm::chamberMoveAtPressure(std::string actionName,int pressureInd
                               progress.message = fmt::format("Current pressure:{}",getChamberPressure(pressureIndex));
 
                               //satisfy distance condition 
-                              if(isSteadyPressure(pressureIndex)){
+                              if(withinPressureDeadzone(pressureIndex) && isSteadyPressure(pressureIndex)){
                                 progress.percentage = 100;
                                 return true;
                               }
@@ -585,8 +472,8 @@ WS_STATUS MonosArm::MoveJointPrecisely(std::array<float,6> &desired_joint,float 
           desired_joint);
 }
 
-void MonosArm::MoveJointPreciselyAsync(std::array<float,6> &desired_joint,float pitch_deadzone, double timeout,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
-  m_actionMoveJoint.setActionCompleteCallback(std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
+void MonosArm::MoveJointPreciselyAsync(std::array<float,6> &desired_joint,float pitch_deadzone, double timeout){
+ 
   m_actionMoveJoint.actionThread = std::make_unique<std::jthread>([&,timeout](){
       MoveJointPrecisely(desired_joint,pitch_deadzone,timeout);
     }
@@ -598,7 +485,7 @@ WS_STATUS MoveLine(TransFormMatrix &transform_T, double timeout){
 
   return WS_OK;
 }
-void MoveLineAsync(TransFormMatrix &transform_T,double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL){
+void MoveLineAsync(TransFormMatrix &transform_T,double timeout = 30 ){
 
 }
 
@@ -666,14 +553,27 @@ WS_STATUS MonosArm::MoveJoint(std::array<float,6> &desired_joint, double timeout
           desired_joint);
 }
 
-void MonosArm::MoveJointAsync(std::array<float,6> &desired_joint, double timeout,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
-  m_actionMoveJoint.setActionCompleteCallback(std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
+void MonosArm::MoveJointAsync(std::array<float,6> &desired_joint, double timeout){
   m_actionMoveJoint.actionThread = std::make_unique<std::jthread>([&,timeout](){
       MoveJoint(desired_joint,timeout);
     }
   );
 }
- 
+
+
+WS_STATUS MonosArm::MoveJointDelta(std::array<float,6> delta_desired_joint, double timeout){
+  std::array<float,6> desired_joint = delta_desired_joint + m_arm_data_.q_current_;
+  return MoveJoint(desired_joint,timeout);
+}
+void MonosArm::MoveJointDeltaAsync(std::array<float,6> delta_desired_joint, double timeout){
+  std::array<float,6> desired_joint = delta_desired_joint + m_arm_data_.q_current_;
+  m_actionMoveJoint.actionThread = std::make_unique<std::jthread>([&,timeout](){
+      MoveJoint(desired_joint,timeout);
+    }
+  );
+}
+
+
 WS_STATUS MonosArm::stopMoveJoint() {
   LOG_F(INFO, "[MonosArm] Stop MoveJoint");
   if(MoveJoint(this->GetArmCurrentJoint())!=WS_OK){
@@ -805,13 +705,6 @@ void MonosArm::MovePitchAsync(std::string actionName,float pitch_desired,float p
   );
 }
 
-// void MonosArm::MovePitchAsync(std::string actionName,float pitch_desired,float pitch_deadzone,float pitch_delta_deadzone,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback,double timeout){
-//   m_actionMovePitch.setActionCompleteCallback(std::forward<std::function<void(WS_STATUS &actionResult)>>(actionCompleteCallback));
-//   m_actionMovePitch.actionThread = std::make_unique<std::jthread>([&,timeout](){
-//       MovePitch(actionName,pitch_desired,pitch_deadzone,pitch_delta_deadzone,timeout);
-//     }
-//   );
-// }
 
 WS_STATUS MonosArm::ErectUp(double timeout){
   return MovePitch("ErectUp",0,m_pitch_deadzone,m_pitch_delta_deadzone,timeout);
@@ -978,9 +871,10 @@ void MonosArm::update(){
     }
   }
  
+  
   void MonosArm::updatePressureSteady(){
     for(size_t i=0;i<m_arm_data_.pressure.pressureArray.size();i++){
-       if(std::abs(m_arm_data_.pressure.pressureArray[i] -m_arm_data_.pressureCmd.pressureArray[i]) <= m_pressure_steady_deadzone.pressureArray[i]){
+       if(withinPressureDeadzone(i)){
           if(m_pressure_steady_count.pressureArray[i]<=m_pressure_steady_count_max){
             m_pressure_steady_count.pressureArray[i]++;
           }
@@ -1161,102 +1055,3 @@ TransFormMatrix MonosArm::ForwardKinematicsExact(std::array<float,6> &joint, std
 
   return transformT;
 }
-
- 
-// // int main() {
-// // 先初始化日志系统
-// // 每天2:30 am 新建一个日志文件
-// // auto logger =
-// //     spdlog::daily_logger_mt("daily_logger", "../logs/daily.txt", 2, 30);
-// // // 遇到warn flush日志，防止丢失
-// // logger->flush_on(spdlog::level::info);
-// // logger->flush_on(spdlog::level::warn);
-// // logger->flush_on(spdlog::level::err);
-// // // spdlog 带行号的打印，同时输出console和文件
-
-// // spdlog::flush_every(std::chrono::seconds(1));
-
-// // spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm TaskControl ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-
-// // auto data_logger = spdlog::daily_logger_mt("task_data_logger",
-// //                                            "../logs/task_data.txt", 2, 30);
-// // // 遇到warn flush日志，防止丢失
-// // data_logger->flush_on(spdlog::level::info);
-// // data_logger->flush_on(spdlog::level::warn);
-// // data_logger->flush_on(spdlog::level::err);
-// // // spdlog 带行号的打印，同时输出console和文件
-
-// // spdlog::flush_every(std::chrono::seconds(1));
-
-// // spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
-// // RECORD_DATA("globalLocation", 0, 0, 2);
-// // ConfigCenter::Instance()->InitConfig();
-// // MonosArm arm;
-// // arm.Connect();
-// // std::array<float,6> joint = {4, 50, 30, 1, 9 / 180.0 * M_PI, 0.1};
-
-// // TransFormMatrix transT = arm.ForwardKinematics(joint);
-// // std::array<float,6> jointIK = arm.InverseKinematics(transT);
-
-// // INFO("jointIK = [{}  {}  {}  {}  {}  {}]", jointIK[0], jointIK[1], jointIK[2],
-// //      jointIK[3], jointIK[4], jointIK[5]);
-// // // m_arm_data_.T_current_ = ForwardKinematics(m_arm_data_.q_current_);
-// // std::cout << "transT" << transT << std::endl;
-// // print("Joint error", joint - jointIK)
-// // print("linkL", arm.linkL)
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm Gunlock ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // arm.Gunlock();
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm GunUnlock ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-
-// // arm.GunUnlock();
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm BendDown ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-
-// // arm.BendDown();
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm ElongateHold ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // arm.ElongateHold();
-
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm GunContract ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // arm.GunContract();
-
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // INFO(" robot arm MoveJoint ");
-// // INFO("=-=-=-=-=-=-=-=-=-=-=-=-=-=-=");
-// // arm.MoveJoint({1, 1, 1, 1, 1, 1}, false, 4, 5, true);
-// // arm.MoveJointDelta({1, 1, 1, 1, 1, 1}, false, 4, 5, true);
-// // arm.QueryUpdate();
-// // std::string port = amParameters.arm_port;
-// // while (true) {
-
-// //     if (arm.IsConnected()) {
-// //         if(kk==1){
-// //             // arm.Gunlock();
-// //             arm.SetSpeed(HIGH);
-// //             kk=0;
-// //         }
-// //         else{
-// //             arm.GunUnlock();
-// //             kk=1;
-// //         }
-// //     }
-// //     else {
-// //         arm.Connect();
-// //     }
-
-// //     std::this_thread::sleep_for(std::chrono::milliseconds(1000));
-
-// // }
-// //   return 0;
-// // }

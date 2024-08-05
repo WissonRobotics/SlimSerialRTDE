@@ -355,6 +355,7 @@ struct ArmSensorData {
 
   PressureUnion pressureCmd;
 
+ 
   TransFormMatrix T_desired_;
   std::array<float,6> q_desired_= {};
 
@@ -450,22 +451,22 @@ class MonosArm {
 
   //Action Move Joint in  Joint Space
   WS_STATUS MoveJoint(std::array<float,6> &desired_joint, double timeout = 30);
-  void MoveJointAsync(std::array<float,6> &desired_joint, double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
+  void MoveJointAsync(std::array<float,6> &desired_joint, double timeout = 30);
 
-  WS_STATUS MoveJoint(TransFormMatrix &transform_T, double timeout);
-  void MoveJointAsync(TransFormMatrix &transform_T,double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
+  WS_STATUS MoveJoint(TransFormMatrix &transform_T, double timeout = 30);
+  void MoveJointAsync(TransFormMatrix &transform_T,double timeout = 30);
 
 
 
   WS_STATUS MoveJointPrecisely(std::array<float, 6> &desired_joint, float pitch_deadzone, double timeout = 30);
-  void MoveJointPreciselyAsync(std::array<float,6> &desired_joint,float pitch_deadzone, double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
+  void MoveJointPreciselyAsync(std::array<float,6> &desired_joint,float pitch_deadzone, double timeout = 30);
  
-  WS_STATUS MoveJointDelta(std::array<float,6> &desired_joint, double timeout = 30);
-  void MoveJointDeltaAsync(std::array<float,6> &desired_joint, double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
+  WS_STATUS MoveJointDelta(std::array<float,6> delta_desired_joint, double timeout = 30);
+  void MoveJointDeltaAsync(std::array<float,6> delta_desired_joint, double timeout = 30);
 
   //Action Move Line in Cartesian Space
-  WS_STATUS MoveLine(TransFormMatrix &transform_T, double timeout);
-  void MoveLineAsync(TransFormMatrix &transform_T,double timeout = 30,std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback=NULL);
+  WS_STATUS MoveLine(TransFormMatrix &transform_T, double timeout = 30);
+  void MoveLineAsync(TransFormMatrix &transform_T,double timeout = 30);
 
   WS_STATUS stopMoveJoint();
 
@@ -526,6 +527,9 @@ class MonosArm {
     }
     return m_pitch_within_count;
   }
+  inline bool withinPressureDeadzone(int pressureindex){
+     return std::abs(m_arm_data_.pressure.pressureArray[pressureindex] -m_arm_data_.pressureCmd.pressureArray[pressureindex]) <= m_pressure_steady_deadzone.pressureArray[pressureindex];
+  }
   inline bool isSteadyPressure(int pressureIndex){
     return  (m_pressure_steady_count.pressureArray[pressureIndex]>=m_pressure_steady_count_max)?1:0;
   }
@@ -538,6 +542,7 @@ class MonosArm {
   ArmAction m_actionMovePitch;
   ArmAction m_actionSingleCommand;
   std::array<ArmAction,8> m_actionMoveChamber;
+
 
 
   void update();
