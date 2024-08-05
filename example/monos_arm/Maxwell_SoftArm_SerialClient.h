@@ -107,7 +107,7 @@ public:
     std::function<void()> updateCallback;
     void setUpdateCallback(std::function<void()> cb);
 
-    std::vector<uint8_t> assembleTxFrame(SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
+    std::vector<uint8_t> assembleTxFrame(SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const &payload = {});
 
     // std::array<uint8_t, 8> &getIOStatus() { return sensorData.IOFlags; }; 
     // std::array<int16_t, 2> &getLaserDistance() { return sensorData.laserDistance; };

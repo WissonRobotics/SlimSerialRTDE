@@ -65,19 +65,19 @@ public:
 						dataFrame.lasers[1] = dataFrame.lasers[1]>156?156:dataFrame.lasers[1]<82?82:dataFrame.lasers[1];
 
 						if(dataFrame.pressures.Plock > 700){
-							dataFrame.IOFlags.pin1 = 1;
+							dataFrame.IOFlags.attach_status_0 = 1;
 						}
 						else if(dataFrame.pressures.Plock < -500){
-							dataFrame.IOFlags.pin1 = 0;
+							dataFrame.IOFlags.attach_status_1 = 0;
 						}
 	
 						if(dataFrame.pressures.Pshift > 700){
-							dataFrame.IOFlags.limit1 = 0;
-							dataFrame.IOFlags.limit2 = 1;
+							dataFrame.IOFlags.shift_away_status = 0;
+							dataFrame.IOFlags.shift_central_status = 1;
 						}
 						else if(dataFrame.pressures.Pshift < -500){
-							dataFrame.IOFlags.limit1 = 1;
-							dataFrame.IOFlags.limit2 = 0;
+							dataFrame.IOFlags.shift_away_status = 1;
+							dataFrame.IOFlags.shift_central_status = 0;
 						}
 
 						 

@@ -213,7 +213,7 @@ void Maxwell_SoftArm_SerialClient::setUpdateCallback(std::function<void()>  cb){
 void Maxwell_SoftArm_SerialClient::setYawOffset(float yaw_offset) { this->yaw_offset_ = yaw_offset; }
  
 std::vector<uint8_t> Maxwell_SoftArm_SerialClient::assembleTxFrame(
-SLIMDRIVE_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
+SLIMSERIAL_FUNCODE_t fcode, std::vector<uint8_t> const& payload) {return assembleTxFrameWithAddress(0xFF,fcode, payload);}
   
 // unit in m and rad
 WS_STATUS Maxwell_SoftArm_SerialClient::commandJoint(std::array<float,6> &jointd) {

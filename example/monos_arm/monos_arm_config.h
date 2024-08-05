@@ -123,3 +123,59 @@ CompensationParameters compensationParameters={
  .time_guide_elongate_delay=2000,
 
 };
+
+
+
+#define CONFIG_VISUAL_PARAM (ConfigCenter::Instance()->GetVisualParameters())
+#define CONFIG_ARM_PARAM (ConfigCenter::Instance()->GetArmParameters())
+#define CONFIG_COMPENSATION_PARAM (ConfigCenter::Instance()->GetCompensationParameters())
+#define CONFIG_GUN_PARAM (ConfigCenter::Instance()->GetGunParameters())
+#define CONFIG_POSTION_PARAM (ConfigCenter::Instance()->GetPositionParameters())
+#define CONFIG_STRATEGY_PARAM (ConfigCenter::Instance()->GetTargetStrategyParameters())
+#define CONFIG_TASK_PARAM (ConfigCenter::Instance()->GetTaskParameters())
+#define CONFIG_CLOUD_PARAM (ConfigCenter::Instance()->GetCloudParameters())
+
+class ConfigCenter {
+ private:
+  ConfigCenter() {}
+  ~ConfigCenter() {}
+ 
+  // VisualParameters visual_param_;
+  ArmParameters arm_param_;
+  CompensationParameters compensation_param_;
+  GunActionParameters gun_param_;
+  // TargetStrategyParameters target_strategy_param_;
+  // PositionParameters position_param_;
+  // TaskParameters task_param_;
+  // CloudParameters cloud_param_;
+  std::string config_path_;
+  std::string yaml_path_;
+  // YAML::Node monos_yaml_;
+  std::string device_config_path_;
+  std::string device_yaml_path_;
+  // YAML::Node device_yaml_;
+  // Json::Value config_json_value_;
+
+ public:
+  static ConfigCenter* Instance() {
+    static ConfigCenter instance;
+    return &instance;
+  }
+  bool InitConfig(std::string car_name);
+  bool InitDeviceConfig();
+  
+  // VisualParameters& GetVisualParameters() { return visual_param_; }
+  ArmParameters& GetArmParameters() { return arm_param_; }
+  GunActionParameters& GetGunParameters() { return gun_param_; }
+  CompensationParameters& GetCompensationParameters() { return compensation_param_; }
+  // TargetStrategyParameters& GetTargetStrategyParameters() { return target_strategy_param_; }
+  // PositionParameters& GetPositionParameters() { return position_param_; }
+  // TaskParameters& GetTaskParameters() { return task_param_; }
+  // CloudParameters& GetCloudParameters() {return cloud_param_;}
+  // Json::Value& GetConfigJsonValue() { return config_json_value_; }
+  // YAML::Node& GetConfigYamlValue() { return monos_yaml_; }
+  // void ConvertJsonToYaml(const Json::Value& jsonValue, YAML::Node& yamlNode);
+  // void SaveConfigJsonValue(Json::Value& json_value);
+  std::string GetUserName();
+  // void ConvertYamlToJson(const YAML::Node& yamlNode, Json::Value& json_value);
+};
