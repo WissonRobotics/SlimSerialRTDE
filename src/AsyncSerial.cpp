@@ -56,16 +56,23 @@ AsyncSerial::~AsyncSerial() {
 boost::system::error_code AsyncSerial::open(std::string dev_node, unsigned int baud, bool autoConnect)
 {
     boost::system::error_code e = doOpen(dev_node, baud);
-    if (isOpen() && autoConnect) {
-        startAutoConnect(1000);
- 
-        LOG_F(INFO, "AutoConnect %s", autoConnect ? "on" : "off");
+    if (isOpen()) {
+        LOG_F(INFO, "Serial %s is opened.",dev_node.c_str());
  
     }
     else {
-        LOG_F(ERROR, "Failed to open %s", dev_node.c_str());
+        LOG_F(ERROR, "Serial %s fail to open with error: %s", dev_node.c_str(),e.message().c_str());
  
     }
+    if(autoConnect){
+        LOG_F(INFO, "Serial %s Auto Reconnect is on at 1s interval");
+        startAutoConnect(1000);
+    }
+    else{
+        stopAutoConnect();
+    }
+    
+
     return e;
 
 }

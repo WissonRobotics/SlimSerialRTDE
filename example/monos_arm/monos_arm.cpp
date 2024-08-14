@@ -10,7 +10,6 @@
 #include <fmt/core.h>
 #include <fmt/format.h>
 #include "monos_arm_config.h"
-
 MonosArm::MonosArm():m_actionSingleCommand(false){
 
   LOG_F(INFO, "[MonosArm] Created");
@@ -364,8 +363,7 @@ return m_actionMoveChamber[pressureIndex].act(
                             progress.message = fmt::format("Desired pressureCmd:{} ,",targetPressure);
                             progress.message.append(fmt::format("Desired/Current "));
                             for(size_t i=0;i<N;i++){
-                              int ind = ioIndexes[i];
-                              progress.message.append(fmt::format("IO_status[{}]={}/{} ",ind,ioTargetStates[ind],m_arm_data_.io_status[ind]));
+                              progress.message.append(fmt::format("IO_status[{}]={}/{} ",ioIndexes[i],ioTargetStates[i],m_arm_data_.io_status[ioIndexes[i]]));
                             }
                             return true;
                             }, //start condition. 
@@ -376,14 +374,12 @@ return m_actionMoveChamber[pressureIndex].act(
                             progress.message = fmt::format("Current pressure:{} ,",getChamberPressure(pressureIndex));
                             progress.message.append(fmt::format("Desired/Current "));
                             for(size_t i=0;i<N;i++){
-                              int ind = ioIndexes[i];
-                              progress.message.append(fmt::format("IO_status[{}]={}/{} ",ind,ioTargetStates[ind],m_arm_data_.io_status[ind]));
+                              progress.message.append(fmt::format("IO_status[{}]={}/{} ",ioIndexes[i],ioTargetStates[i],m_arm_data_.io_status[ioIndexes[i]]));
                             }
                             
                             bool ioResult = true; 
                             for(size_t i=0;i<N;i++){ 
-                              int ind = ioIndexes[i];
-                              ioResult &= (m_arm_data_.io_status[ind]==ioTargetStates[ind]);
+                              ioResult &= (m_arm_data_.io_status[ioIndexes[i]]==ioTargetStates[i]);
                             }
                             //satisfy distance condition 
                             if(ioResult){

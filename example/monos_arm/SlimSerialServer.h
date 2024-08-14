@@ -32,6 +32,7 @@ public:
 		m_txframe = assembleTxFrameWithAddress(0x00, FUNC_CUSTOM_MONO_PC_RESPONSE, payload);
 
         memset((uint8_t*)&dataFrame,0,sizeof(dataFrame));
+		memset((uint8_t*)&dataInternal,0,sizeof(dataInternal));
         memset((uint8_t*)&dataCmd,0,sizeof(dataCmd));
 
 		preparePCDataFrame();
@@ -42,42 +43,42 @@ public:
 				while (!stop_token.stop_requested())
 				{	
 					if(m_enableInternalDynamics){
-						dataFrame.X += (dataCmd.XCmd-dataFrame.X)>=5?5:((dataCmd.XCmd-dataFrame.X)<=-5?-5:0);
-						dataFrame.Y += (dataCmd.YCmd-dataFrame.Y)>=5?5:((dataCmd.YCmd-dataFrame.Y)<=-5?-5:0);
-						dataFrame.Z += (dataCmd.ZCmd-dataFrame.Z)>=5?5:((dataCmd.ZCmd-dataFrame.Z)<=-5?-5:0);
-						dataFrame.R += (dataCmd.RCmd-dataFrame.R)>=5?5:((dataCmd.RCmd-dataFrame.R)<=-5?-5:0);
-						dataFrame.Pitch += (dataCmd.PitchCmd-dataFrame.Pitch)>=20?20:((dataCmd.PitchCmd-dataFrame.Pitch)<=-20?-20:0);
+						dataInternal.X += (dataCmd.XCmd-dataInternal.X)>=5?5:((dataCmd.XCmd-dataInternal.X)<=-5?-5:0);
+						dataInternal.Y += (dataCmd.YCmd-dataInternal.Y)>=5?5:((dataCmd.YCmd-dataInternal.Y)<=-5?-5:0);
+						dataInternal.Z += (dataCmd.ZCmd-dataInternal.Z)>=5?5:((dataCmd.ZCmd-dataInternal.Z)<=-5?-5:0);
+						dataInternal.R += (dataCmd.RCmd-dataInternal.R)>=5?5:((dataCmd.RCmd-dataInternal.R)<=-5?-5:0);
+						dataInternal.Pitch += (dataCmd.PitchCmd-dataInternal.Pitch)>=20?20:((dataCmd.PitchCmd-dataInternal.Pitch)<=-20?-20:0);
 						
-						dataFrame.pressures.Ppitch_inner += (dataCmd.PitchCmd-dataFrame.Pitch)>=10?-10:((dataCmd.PitchCmd-dataFrame.Pitch)<=-10?10:0);
-						dataFrame.pressures.Ppitch_outer += (dataCmd.PitchCmd-dataFrame.Pitch)>=10?10:((dataCmd.PitchCmd-dataFrame.Pitch)<=-10?-10:0);
-						dataFrame.pressures.Pelongate += (dataCmd.elongateCmd-dataFrame.pressures.Pelongate)>=10?10:((dataCmd.elongateCmd-dataFrame.pressures.Pelongate)<=-10?-10:0);
-						dataFrame.pressures.Pcable+= (dataCmd.cableCmd-dataFrame.pressures.Pcable)>=10?10:((dataCmd.cableCmd-dataFrame.pressures.Pcable)<=-10?-10:0);
-						dataFrame.pressures.Pguide+= (dataCmd.guideCmd-dataFrame.pressures.Pguide)>=10?10:((dataCmd.guideCmd-dataFrame.pressures.Pguide)<=-10?-10:0);
-						dataFrame.pressures.Pshift+= (dataCmd.shiftCmd-dataFrame.pressures.Pshift)>=10?10:((dataCmd.shiftCmd-dataFrame.pressures.Pshift)<=-10?-10:0);
-						dataFrame.pressures.Pgrasp+= (dataCmd.graspCmd-dataFrame.pressures.Pgrasp)>=10?10:((dataCmd.graspCmd-dataFrame.pressures.Pgrasp)<=-10?-10:0);
-						dataFrame.pressures.Plock+= (dataCmd.lockCmd-dataFrame.pressures.Plock)>=10?10:((dataCmd.lockCmd-dataFrame.pressures.Plock)<=-10?-10:0);
+						dataInternal.pressures.Ppitch_inner += (dataCmd.PitchCmd-dataInternal.Pitch)>=10?-10:((dataCmd.PitchCmd-dataInternal.Pitch)<=-10?10:0);
+						dataInternal.pressures.Ppitch_outer += (dataCmd.PitchCmd-dataInternal.Pitch)>=10?10:((dataCmd.PitchCmd-dataInternal.Pitch)<=-10?-10:0);
+						dataInternal.pressures.Pelongate += (dataCmd.elongateCmd-dataInternal.pressures.Pelongate)>=10?10:((dataCmd.elongateCmd-dataInternal.pressures.Pelongate)<=-10?-10:0);
+						dataInternal.pressures.Pcable+= (dataCmd.cableCmd-dataInternal.pressures.Pcable)>=10?10:((dataCmd.cableCmd-dataInternal.pressures.Pcable)<=-10?-10:0);
+						dataInternal.pressures.Pguide+= (dataCmd.guideCmd-dataInternal.pressures.Pguide)>=10?10:((dataCmd.guideCmd-dataInternal.pressures.Pguide)<=-10?-10:0);
+						dataInternal.pressures.Pshift+= (dataCmd.shiftCmd-dataInternal.pressures.Pshift)>=10?10:((dataCmd.shiftCmd-dataInternal.pressures.Pshift)<=-10?-10:0);
+						dataInternal.pressures.Pgrasp+= (dataCmd.graspCmd-dataInternal.pressures.Pgrasp)>=10?10:((dataCmd.graspCmd-dataInternal.pressures.Pgrasp)<=-10?-10:0);
+						dataInternal.pressures.Plock+= (dataCmd.lockCmd-dataInternal.pressures.Plock)>=10?10:((dataCmd.lockCmd-dataInternal.pressures.Plock)<=-10?-10:0);
 
  
-						dataFrame.lasers[0] += (dataCmd.elongateCmd-dataFrame.pressures.Pelongate)>=10?5:((dataCmd.elongateCmd-dataFrame.pressures.Pelongate)<=-10?-5:0);
-						dataFrame.lasers[0] = dataFrame.lasers[0]>220?220:dataFrame.lasers[0]<68?68:dataFrame.lasers[0];
+						dataInternal.lasers[0] += (dataCmd.elongateCmd-dataInternal.pressures.Pelongate)>=10?5:((dataCmd.elongateCmd-dataInternal.pressures.Pelongate)<=-10?-5:0);
+						dataInternal.lasers[0] = dataInternal.lasers[0]>220?220:dataInternal.lasers[0]<68?68:dataInternal.lasers[0];
 
-						dataFrame.lasers[1] += (dataCmd.guideCmd-dataFrame.pressures.Pguide)>=10?5:((dataCmd.guideCmd-dataFrame.pressures.Pguide)<=-10?-5:0);
-						dataFrame.lasers[1] = dataFrame.lasers[1]>156?156:dataFrame.lasers[1]<82?82:dataFrame.lasers[1];
+						dataInternal.lasers[1] += (dataCmd.guideCmd-dataInternal.pressures.Pguide)>=10?5:((dataCmd.guideCmd-dataInternal.pressures.Pguide)<=-10?-5:0);
+						dataInternal.lasers[1] = dataInternal.lasers[1]>156?156:dataInternal.lasers[1]<82?82:dataInternal.lasers[1];
 
-						if(dataFrame.pressures.Plock > 700){
-							dataFrame.IOFlags.attach_status_0 = 1;
+						if(dataInternal.pressures.Plock > 700){
+							dataInternal.IOFlags.attach_status_0 = 1;
 						}
-						else if(dataFrame.pressures.Plock < -500){
-							dataFrame.IOFlags.attach_status_1 = 0;
+						else if(dataInternal.pressures.Plock < -500){
+							dataInternal.IOFlags.attach_status_1 = 0;
 						}
 	
-						if(dataFrame.pressures.Pshift > 700){
-							dataFrame.IOFlags.shift_away_status = 0;
-							dataFrame.IOFlags.shift_central_status = 1;
+						if(dataInternal.pressures.Pshift > 700){
+							dataInternal.IOFlags.shift_away_status = 0;
+							dataInternal.IOFlags.shift_central_status = 1;
 						}
-						else if(dataFrame.pressures.Pshift < -500){
-							dataFrame.IOFlags.shift_away_status = 1;
-							dataFrame.IOFlags.shift_central_status = 0;
+						else if(dataInternal.pressures.Pshift < -500){
+							dataInternal.IOFlags.shift_away_status = 1;
+							dataInternal.IOFlags.shift_central_status = 0;
 						}
 
 						 
@@ -198,25 +199,14 @@ public:
 
 
     void preparePCDataFrame(){
+		memcpy((uint8_t *)(&dataFrame),(uint8_t *)(&dataInternal),sizeof(dataInternal));
         dataFrame.header[0]=0x5A;
         dataFrame.header[1]=0xA5;
         dataFrame.src = 0x00;
         dataFrame.payloadBytes = sizeof(dataFrame)-7;
         dataFrame.funcode = FUNC_CUSTOM_MONO_PC_RESPONSE;
+ 
 
-        // dataFrame.X=0.1;
-        // dataFrame.Y=0.2;
-        // dataFrame.Z=0.3;
-        // dataFrame.R=0.4;
-        // dataFrame.Pitch=0.5;
-        // for(int i=0;i<8;i++){
-        //     dataFrame.pressures.pressureArray[i]=1000;
-        // }  
-        // dataFrame.pSource=1500;
-        // dataFrame.pSink=-600;
-        // dataFrame.lasers[0]=0.45;
-        // dataFrame.lasers[1]=1.45;
-        // dataFrame.lasers[2]=2.45;
 
         addCRC((uint8_t*)&dataFrame,sizeof(dataFrame)-2);
     }
@@ -292,6 +282,7 @@ public:
 	std::vector<uint8_t>  m_txframe;
     static constexpr uint16_t dataFrameSize=37;
     FRAME_monosdrive_to_PC dataFrame;
+	FRAME_monosdrive_to_PC dataInternal;
 	FRAME_PC_To_Monosdrive dataCmd;
 	float pitchangle;
 	bool m_enableInternalDynamics = false;

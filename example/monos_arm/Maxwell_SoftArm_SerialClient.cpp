@@ -31,14 +31,10 @@ Maxwell_SoftArm_SerialClient::Maxwell_SoftArm_SerialClient() : SlimSerialRTDE() 
 }
 WS_STATUS Maxwell_SoftArm_SerialClient::connect(std::string portname, uint32_t baudrate)
 {
-    if(SlimSerialRTDE::connect(portname,baudrate)==WS_OK){
-      run();
-      return WS_OK;
-    }
-    else{
-      return WS_ERROR;
-    }
-    
+
+    auto ret = SlimSerialRTDE::connect(portname,baudrate);
+    run();
+    return ret;
 }
 bool Maxwell_SoftArm_SerialClient::isAlive(){
   return communication_is_alive;
