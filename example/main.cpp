@@ -308,8 +308,7 @@ int main(int argc, char** argv) {
 	loguru::g_preamble_thread = false;
 	 
 	arm.addLoggingFile("serialTestStatistics.log","debug"); 
-	int a=0;
-	int tt=0;
+ 
 	// std::array<float,6> jointc1={.1,.1,.1,.1,.1,.1};
 	// std::array<float,6> jointc2={.2,.2,.2,.2,.2,.2};
 	//std::vector<std::unique_ptr<std::jthread>> ts;

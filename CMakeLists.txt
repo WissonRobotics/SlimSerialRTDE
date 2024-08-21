@@ -7,7 +7,8 @@ project ( SlimSerialRTDE)
 
 add_definitions("-Wall -g")
 
- 
+add_compile_options(-fsanitize=address)
+add_link_options(-fsanitize=address)
 
 if(${UNIX})
 find_package(Threads REQUIRED)
@@ -109,7 +110,11 @@ include(GNUInstallDirs)
 
  
 set_property(TARGET SlimSerialRTDE
- PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/SlimSerialRTDE.h)
+ PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/SlimSerialRTDE.h
+ ${CMAKE_CURRENT_SOURCE_DIR}/include/AsyncSerial.h
+ ${CMAKE_CURRENT_SOURCE_DIR}/include/loguru.hpp
+ ${CMAKE_CURRENT_SOURCE_DIR}/include/slimCircularBuffer.h
+ ${CMAKE_CURRENT_SOURCE_DIR}/include/thread_safe_queue.h)
 install(TARGETS SlimSerialRTDE
     EXPORT SlimSerialRTDETargets  
     RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
@@ -145,24 +150,21 @@ install(TARGETS SlimSerialRTDE
 
 ############################ install cmake ******************* 
  
+ 
 
 include(CMakePackageConfigHelpers)
 set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR}/SlimSerialRTDE
-    CACHE PATH "Location of header files" )
-set(LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}/SlimSerialRTDE
-    CACHE PATH "Location of library files" )
+CACHE  PATH "Location of header files" )
+set(LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}
+CACHE PATH "Location of library files" )
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/SlimSerialRTDEConfig.cmake.in
-    "${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/SlimSerialRTDE/cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SlimSerialRTDE
     PATH_VARS INCLUDE_INSTALL_DIR LIBRARY_INSTALL_DIR)
-write_basic_package_version_file(
-      ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfigVersion.cmake
-      VERSION 1.0.0
-      COMPATIBILITY SameMajorVersion ) 
-install(FILES "${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake"
-               ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfigVersion.cmake
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/SlimSerialRTDE/cmake 
+ 
+install(FILES  ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake 
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SlimSerialRTDE 
         )
 
 

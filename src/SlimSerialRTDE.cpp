@@ -215,6 +215,9 @@ void SlimSerialRTDE::SlimSerialRTDEImpl::addLoggingFile(std::string logFileName,
 		}
 		loguru::add_file(m_logFileName.c_str(), loguru::Append, m_logFileLevel);
 	}
+	else{
+		m_logFileLevel = loguru::g_stderr_verbosity;
+	}
 }
  
 bool SlimSerialRTDE::SlimSerialRTDEImpl::applyAddressFilter(uint8_t addressIn) {
@@ -374,10 +377,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(uint8_t *pDat
 
 uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::readBuffer(uint8_t* pDes, uint32_t nBytes, uint32_t timeoutMS) {
 
-	int frametemp = getFrameType();
-
-	setFrameType(SLIMSERIAL_FRAME_TYPE_4);
-
+ 
 	uint32_t readN = circularBuffer.out(pDes, nBytes);
 
 	if (readN < nBytes) {
@@ -395,12 +395,11 @@ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::readBuffer(uint8_t* pDes, uint32_t 
 			
 			readN += circularBuffer.out(pDes, remainingBytes);
  
-			LOG_F(WARNING, "Reading buffer Failed, requesting %d but only got %d nBytes ", nBytes, readN);
+			LOG_F(1, "Reading buffer Failed, requesting %d but only got %d nBytes ", nBytes, readN);
  
 		}
 	}
-
-	setFrameType(frametemp);
+ 
 	 
 	return readN;
 
@@ -755,10 +754,10 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 		}
 		else if (_frameType == SLIMSERIAL_FRAME_TYPE_4) {
 			// do nothing for rx
-			// std::unique_lock<std::mutex> lock_(readBufferMtx);
-			// readBufferCV.notify_one();
+			std::unique_lock<std::mutex> lock_(readBufferMtx);
+			readBufferCV.notify_one();
 			parserResult = WS_OK;
-			// break;
+			break;
 		}
 
 
@@ -871,6 +870,7 @@ WS_STATUS SlimSerialRTDE::connect(std::string dname,
 }
 void SlimSerialRTDE::disconnect() {
 	pimpl_->close();
+	LOG_F(INFO, "Serial port %s disconnected by user", pimpl_->m_portname.c_str());
 }
 bool SlimSerialRTDE::isConnected(){
 	return pimpl_->isOpen();
@@ -927,6 +927,9 @@ uint32_t SlimSerialRTDE::readBuffer(uint8_t* pDes, int nBytes, uint32_t timeoutM
 }
 uint32_t SlimSerialRTDE::clearRxBuffer() {
 	return pimpl_->clearRxBuffer();
+}
+void SlimSerialRTDE::printRxBuffer(){
+	pimpl_->printRxBuffer();
 }
 std::vector<uint8_t> SlimSerialRTDE::getRxFrame() {
 	return pimpl_->getRxFrame();

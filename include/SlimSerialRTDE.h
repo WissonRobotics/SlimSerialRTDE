@@ -132,6 +132,7 @@ public:
 	
 
 	uint32_t clearRxBuffer();
+	void printRxBuffer();
 	std::vector<uint8_t> getRxFrame();
 
 	void addAddressFilter(uint8_t legalAddress);

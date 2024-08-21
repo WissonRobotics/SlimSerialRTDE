@@ -61,6 +61,8 @@ public:
 	int m_totalTxBytes=0; 
 	int m_totalTxFrames=0;
 	SLIM_CURCULAR_BUFFER circularBuffer;
+	std::string m_portname ="";
+	unsigned int m_baudrate=115200;
 private:
 
 	std::array<uint8_t,4096> m_txBuffer;
@@ -74,8 +76,7 @@ private:
 	int m_autoReconnectTimeMs=1000;
 	std::unique_ptr<std::thread> ioContextThread;
 
-	std::string m_portname ="";
-	unsigned int m_baudrate=115200;
+
 
 	mutable std::mutex readBufferMtx;
 	mutable std::mutex errMtx;
@@ -111,5 +112,5 @@ private:
 
 	void asyncWriteHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
 
-
+	bool m_closing_state=false;
 };
