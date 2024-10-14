@@ -685,7 +685,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 		else if (_frameType == SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM) {
 
 			//src + funcode + data + crc16
-			while ((remainingBytes = circularBuffer.availableBytes()) >= 4) {
+			while ((remainingBytes = circularBuffer.availableBytes()) >= 8) {
 
 				//check address. disabled by default
 				uint8_t addressIn = circularBuffer.peekAt(0);
@@ -695,59 +695,71 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 					uint16_t funcodeIn = circularBuffer.peekAt(1);
 					if (funcodeIn == 0x03 || funcodeIn == 0x06 || funcodeIn == 0x10) {
 
-						uint16_t expectedFrameBytes = remainingBytes;
-
-						//check crc
-						if (circularBuffer.calculateCRC(expectedFrameBytes - 2) == circularBuffer.peekAt_U16(expectedFrameBytes - 2)) {
-
-							_inFrameBytes = expectedFrameBytes;
-							circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
-							remainingBytes -= _inFrameBytes;
-							parserResult = WS_OK;
-							LOG_F(1, "[frame parser] [Success] Decoded frame type 3 MODBUS with %d bytes", _inFrameBytes);
-							// LOG_F(2, "%s", toHexString(&_inFrame[0],_inFrameBytes).c_str());
-							m_totalRxFrames++;
-							
-							//dealing frame
-							if (frameCallback) {
-								m_tic_frameCallback = getTimeUTC();
-								frameCallback((uint8_t*)(&_inFrame[0]), _inFrameBytes);
-							}
-
-							//notificy rx frame handle complete
-	
-							// std::unique_lock<std::mutex> lk(frameCompleteMtx);
-							// frameCompleteFlag = true;
-							// frameCompleteCV.notify_one();
-							continue;
+						uint16_t expectedFrameBytes = 8;
+						if(funcodeIn==0x10){
+							expectedFrameBytes += (uint16_t)(circularBuffer.peekAt(6))+1;
 						}
-						else {//bad crc
+ 
+ 						//got enough rx bytes
+						if (remainingBytes >= expectedFrameBytes) {
 
-							LOG_F(WARNING, "Bad CRC. calculated 0x%2x, recevied 0x%2x.", circularBuffer.calculateCRC(expectedFrameBytes - 2), circularBuffer.peekAt_U16(expectedFrameBytes - 2));
+							//check crc
+							if (circularBuffer.calculateCRC(expectedFrameBytes - 2) == circularBuffer.peekAt_U16(expectedFrameBytes - 2)) {
 
-							circularBuffer.discardN(1);
-							remainingBytes--;
-							continue;
+								_inFrameBytes = expectedFrameBytes;
+								circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+								remainingBytes -= _inFrameBytes;
+								parserResult = WS_OK;
+								LOG_F(1, "[frame parser] [Success] Decoded frame type 3 MODBUS with %d bytes", _inFrameBytes);
+								// LOG_F(2, "%s", toHexString(&_inFrame[0],_inFrameBytes).c_str());
+								m_totalRxFrames++;
+								
+								//dealing frame
+								if (frameCallback) {
+									m_tic_frameCallback = getTimeUTC();
+									frameCallback((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+								}
+
+								//notificy rx frame handle complete
+		
+								// std::unique_lock<std::mutex> lk(frameCompleteMtx);
+								// frameCompleteFlag = true;
+								// frameCompleteCV.notify_one();
+								continue;
+							}
+							else {//bad crc
+
+								LOG_F(WARNING, "Bad CRC. calculated 0x%2x, recevied 0x%2x.", circularBuffer.calculateCRC(expectedFrameBytes - 2), circularBuffer.peekAt_U16(expectedFrameBytes - 2));
+								int discardN = circularBuffer.discardUntilNext(default_address);
+								remainingBytes -= discardN;
+								LOG_F(WARNING, "Discarding %d bytes to find %x", discardN, default_address);
+								continue;
+							}
+						}
+						else{//not rx finished
+							LOG_F(1, "incomplete frame, continue receving");
+							waitingForMore =true;
+							break;
 						}
 					}
 					else {
 						//illegal funcode
 		
-						LOG_F(WARNING, "illegal funcode 0x%2x. Discarding 1 byte", funcodeIn);
-						circularBuffer.discardN(1);
-						remainingBytes--;
-
+						LOG_F(WARNING, "illegal funcode 0x%2x", funcodeIn);
+						int discardN = circularBuffer.discardUntilNext(default_address);
+						remainingBytes -= discardN;
+						LOG_F(WARNING, "Discarding %d bytes to find %x", discardN, default_address);
 						continue;
 
 					}
 				}
 				else {
 					//illegal address
-
-					LOG_F(WARNING, "illegal funcode 0x%2x. Discarding 1 byte", addressIn);
-					circularBuffer.discardN(1);
-					remainingBytes--;
-
+					LOG_F(WARNING, "illegal address 0x%2x", addressIn);
+					int discardN = circularBuffer.discardUntilNext(default_address);
+					remainingBytes -= discardN;
+					LOG_F(WARNING, "Discarding %d bytes to find %x", discardN, default_address);
+					printRxBuffer();
 					continue;
 				}
 			}
@@ -768,7 +780,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 		((_frameType == SLIMSERIAL_FRAME_TYPE_1_NUM)&&waitingForMore) ||
 		((_frameType == SLIMSERIAL_FRAME_TYPE_2_NUM)&&remainingBytes<4) ||
 		((_frameType == SLIMSERIAL_FRAME_TYPE_2_NUM)&&waitingForMore) ||
-		((_frameType == SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM)&&remainingBytes<4)  ||
+		((_frameType == SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM))  ||
 		((_frameType == SLIMSERIAL_FRAME_TYPE_0_NUM)&&remainingBytes==0) || 
 		((_frameType == SLIMSERIAL_FRAME_TYPE_4))
 		){
@@ -945,6 +957,15 @@ void SlimSerialRTDE::addAddressFilter(uint8_t legalAddress) {
 		pimpl_->addressFilter_num++;
 	}
 }
+
+void SlimSerialRTDE::setAddressFilter(std::vector<uint8_t> legalAddresses) {
+	pimpl_->addressFilter_num = legalAddresses.size()>ADDRESS_FILTER_MAX_LEN?ADDRESS_FILTER_MAX_LEN:legalAddresses.size();
+	for(int i=0;i<pimpl_->addressFilter_num;i++){
+		pimpl_->addressFilter[i] = legalAddresses[i];
+	}
+	 
+}
+
  
 void SlimSerialRTDE::toggleAddressFilter(bool addressFilterOn) {
 	pimpl_->addressFilterOn = addressFilterOn;

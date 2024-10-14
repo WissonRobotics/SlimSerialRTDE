@@ -254,6 +254,21 @@ loguru
 
 
 
+############################ begin modbus client example##########
+
+add_executable( modbus_client
+             example/modbus_client.cpp 
+             )
+target_include_directories(modbus_client PUBLIC
+${CMAKE_CURRENT_SOURCE_DIR}/include 
+)
+target_link_libraries(modbus_client
+SlimSerialRTDE
+loguru
+fmt::fmt
+)
+############################ end modbus client example##########
+
 ############################ Begin example SlimSerialMain  EXE *******************
 add_executable( main
                "example/main.cpp"

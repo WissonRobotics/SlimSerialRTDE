@@ -136,6 +136,8 @@ public:
 	std::vector<uint8_t> getRxFrame();
 
 	void addAddressFilter(uint8_t legalAddress);
+
+	void setAddressFilter(std::vector<uint8_t> legalAddresses);
  
 	void toggleAddressFilter(bool addressFilterOn);
 
@@ -177,6 +179,11 @@ public:
 	uint64_t getTicm_tic_frameComplete();
 	uint64_t getTicm_tic_frameParserEnd();
  
+
+	uint16_t getOscilationStatus(float pitch_dji, float q, float ){
+
+	};
+
 
 private:
 	

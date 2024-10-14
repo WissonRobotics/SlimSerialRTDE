@@ -3,5 +3,5 @@ rm -drf build
 mkdir build
 cd build
 cmake ..
-make
+make -j12
 make install
