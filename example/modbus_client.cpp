@@ -298,15 +298,15 @@ void ModbusClient::executeCommand(uint8_t *pdata,uint32_t databytes){
 
 
  
-// int main(int argc, const char *argv[]){
+int main(int argc, const char *argv[]){
  
-//     ModbusClient modbusClient;
-//     loguru::g_stderr_verbosity = 2;
-//     modbusClient.connect("/dev/ttyUSB0",115200);
-//     while(true){
-//        std::this_thread::sleep_for(std::chrono::milliseconds(200));
-//     }
+    ModbusClient modbusClient;
+    loguru::g_stderr_verbosity = 2;
+    modbusClient.connect("/dev/ttyUSB0",115200);
+    while(true){
+       std::this_thread::sleep_for(std::chrono::milliseconds(200));
+    }
 
  
-//     return 0;
-// }
+    return 0;
+}

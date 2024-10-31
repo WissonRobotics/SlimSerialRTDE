@@ -43,13 +43,12 @@ auto ByteStreamToHexString(uint8_t *pdata,uint32_t databytes)
     return result.str();
 }
 
-AsyncSerial::AsyncSerial() :circularBuffer(cbBuf, DEFAULT_CIRCULAR_BUF_SIZE),  io_context(), serial_port(io_context), serial_work(io_context),single_buf{}, ioContextThread(nullptr) {
-
+AsyncSerial::AsyncSerial() :circularBuffer(cbBuf, DEFAULT_CIRCULAR_BUF_SIZE),  io_context(), serial_port(io_context),serial_work(io_context),single_buf{}, ioContextThread(nullptr) {
+        
 };
 
 
 AsyncSerial::~AsyncSerial() {
-    stopAutoConnect();
     close();
 }
 
@@ -65,7 +64,7 @@ boost::system::error_code AsyncSerial::open(std::string dev_node, unsigned int b
  
     }
     if(autoConnect){
-        LOG_F(INFO, "Serial %s Auto Reconnect is on at 1s interval", dev_node.c_str());
+        LOG_F(INFO, "Serial %s Auto Reconnect is turned on at 1s interval", dev_node.c_str());
         startAutoConnect(1000);
     }
     else{
@@ -76,9 +75,53 @@ boost::system::error_code AsyncSerial::open(std::string dev_node, unsigned int b
     return e;
 
 }
+void AsyncSerial::stopIOContextThread(){
+    if (serial_port.is_open()) {
+        try {
+
+            serial_port.cancel();
+            LOG_F(1, "serial_port %s jobs canceled", m_portname.c_str());
+        }
+        catch (...) {
+            
+        }
+        try {
+            serial_port.close();
+            LOG_F(1, "serial_port %s closed", m_portname.c_str());
+        }
+        catch (...) {
+            LOG_F(ERROR, "serial_port %s closing error", m_portname.c_str());
+        }
+    }
+
+    if(ioContextThread){
+        if (!io_context.stopped()) {
+            io_context.stop();
+        }
+        while(!io_context.stopped()){
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            LOG_F(1,"Waiting for io_context to stop");
+        }
+        if(io_context.stopped()){
+            LOG_F(1,"serial port %s io_context is stopped",m_portname.c_str());
+        }
+ 
+        if(ioContextThread->joinable()){
+  
+            ioContextThread->join();
+            
+        }
+        ioContextThread.reset();
+        LOG_F(1,"serial port %s ioContextThread stopped",m_portname.c_str());
+    }
+}
+
+
 boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, flowControlType flowControl, unsigned int characterSize, parityType parity, stopBitsType stopBits)
 {
     boost::system::error_code _errorCode;
+
+    stopIOContextThread();
 
     resetTxRxCount();
     needToReconnectFlag = false;
@@ -89,7 +132,7 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
     m_baudrate = baud;
 
     serial_port.open(m_portname, _errorCode);
-    LOG_F(1, "serial %s open with state: %s", m_portname.c_str(), _errorCode.message().c_str());
+    LOG_F(INFO, "serial %s open with state: %s", m_portname.c_str(), _errorCode.message().c_str());
 
     if (!serial_port.is_open()) {
         LOG_F(ERROR, "serial %s open failed", m_portname.c_str());
@@ -110,7 +153,16 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
     serial.flags |= ASYNC_LOW_LATENCY; // (0x2000)
     ioctl(native, TIOCSSERIAL, &serial);
 #endif
-    ioContextThread.reset(new std::thread([this] { io_context.run(); }));
+
+   
+ 
+    ioContextThread = std::make_unique<std::jthread>(
+        [this]()
+        {
+            io_context.restart();
+            io_context.run(); 
+        }
+    );
 
     serial_port.async_read_some(
         boost::asio::buffer(single_buf),
@@ -175,7 +227,9 @@ void AsyncSerial::stopAutoConnect() {
             LOG_F(1, "Serialport %s stopping reconnect thread ", m_portname.c_str());
             reconnectThread->request_stop();
             reconnectCV.notify_one();
-            reconnectThread->join();
+            if(reconnectThread->joinable()){
+                reconnectThread->join();
+            }
             reconnectThread.reset();
             LOG_F(1, "Serialport %s cleaning reconnect thread ", m_portname.c_str());
         }
@@ -247,45 +301,10 @@ bool AsyncSerial::isOpen() const
 void AsyncSerial::doClose()
 {
     m_closing_state = true;
-    if (serial_port.is_open()) {
+    
 
-        try {
-            LOG_F(2, "serial_port cancelling...");
-            serial_port.cancel();
-        }
-        catch (...) {
-            LOG_F(2, "serial_port cancelling error");
-        }
-
-        try {
-            LOG_F(2, "serial_port closing...");
-            serial_port.close();
-        }
-        catch (...) {
-            LOG_F(2, "serial_port cancelling error");
-        }
-
-    }
-
-    try {
-
-        if (!io_context.stopped()) {
-            LOG_F(2, "io_context stopping...");
-            io_context.stop();
-        }
-
-
-        if (ioContextThread && ioContextThread->joinable()) {
-            LOG_F(2, "io_context thread join...");
-            ioContextThread->join();
-        }
-
-        LOG_F(2, "io_context resetting...");
-        io_context.restart();
-    }
-    catch (boost::system::error_code& error) {
-        LOG_F(ERROR, "%s", error.message().c_str());
-    }
+    stopIOContextThread();
+     
 
     m_closing_state = false;
 }

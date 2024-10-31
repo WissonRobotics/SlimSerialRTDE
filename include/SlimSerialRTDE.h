@@ -11,6 +11,7 @@ enum WS_STATUS {
 	WS_ABORT,
 	WS_FAIL,
 	WS_ERROR,
+	WS_QUIT,
 	WS_NONE
 };
 

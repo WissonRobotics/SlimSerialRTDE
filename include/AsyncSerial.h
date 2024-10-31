@@ -64,6 +64,7 @@ public:
 	std::string m_portname ="";
 	unsigned int m_baudrate=115200;
 private:
+	void stopIOContextThread();
 
 	std::array<uint8_t,4096> m_txBuffer;
 
@@ -74,7 +75,7 @@ private:
 	uint8_t cbBuf[DEFAULT_CIRCULAR_BUF_SIZE];
 
 	int m_autoReconnectTimeMs=1000;
-	std::unique_ptr<std::thread> ioContextThread;
+	std::unique_ptr<std::jthread> ioContextThread;
 
 
 
