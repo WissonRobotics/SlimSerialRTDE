@@ -2,7 +2,7 @@
 #include <cstring>
 #include <functional>
 #include <thread>
-#include "SlimSerialRTDE.h"
+#include "SlimSerialRTDE/SlimSerialRTDE.h"
 #include <algorithm>
 #include <deque>
 #include <mutex>

@@ -4,7 +4,8 @@
 #include <functional>
 #include <vector>
 #include <memory>
-
+#include <spdlog/spdlog.h>
+#include "spdlog/sinks/stdout_color_sinks.h"
 enum WS_STATUS {
 	WS_OK,
 	WS_TIMEOUT,
@@ -85,7 +86,7 @@ typedef enum
 
 class SlimSerialRTDE {
 public:
-	SlimSerialRTDE(std::string logFileName="",std::string logFileLevel="info");
+	SlimSerialRTDE();
 	~SlimSerialRTDE();
 	SlimSerialRTDE(SlimSerialRTDE&& rhs);
 	SlimSerialRTDE& operator=(SlimSerialRTDE&& rhs);
@@ -148,7 +149,8 @@ public:
 
 	void setServer(bool );
 
-	void addLoggingFile(std::string logFileName,std::string logFileLevel);
+	void enableLogger(std::shared_ptr<spdlog::logger> ext_logger=spdlog::default_logger());
+	void disableLogger();
  
 	void setHeader(uint8_t h1, uint8_t h2);
 	uint8_t getHeader(uint8_t index);
@@ -182,10 +184,10 @@ public:
  
 
 	uint16_t getOscilationStatus(float pitch_dji, float q, float ){
-
+		return WS_OK;
 	};
 
-
+	std::shared_ptr<spdlog::logger> m_logger; 
 private:
 	
 	class SlimSerialRTDEImpl;

@@ -8,8 +8,10 @@
 
 #include <string.h>
 #include "stdio.h" 
-#include "slimCircularBuffer.h"
+#include "SlimSerialRTDE/slimCircularBuffer.h"
 
+#include <spdlog/spdlog.h>
+#include "spdlog/sinks/stdout_color_sinks.h"
 
 class AsyncSerial
 {
@@ -34,6 +36,9 @@ public:
 	void setBaudrate(uint32_t baud);
  
 	void setAutoConnectPeriod(int autoReconnectTimeMs=1000);
+
+	void enableLogger(std::shared_ptr<spdlog::logger> ext_logger=spdlog::default_logger());
+	void disableLogger();
 
 	//uint32_t readBuffer(uint8_t* pDes, int nBytes = 1);
 
@@ -63,8 +68,11 @@ public:
 	SLIM_CURCULAR_BUFFER circularBuffer;
 	std::string m_portname ="";
 	unsigned int m_baudrate=115200;
+	std::shared_ptr<spdlog::logger> m_logger=spdlog::default_logger(); 
 private:
 	void stopIOContextThread();
+
+	
 
 	std::array<uint8_t,4096> m_txBuffer;
 

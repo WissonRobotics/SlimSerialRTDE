@@ -4,7 +4,7 @@
 
 class SLIM_CURCULAR_BUFFER
 {
-
+constexpr size_t mylog2(size_t n) { return ((n <= 2) ? 1 : 1 + mylog2(n / 2)); }
 public:
 	SLIM_CURCULAR_BUFFER(uint8_t *pBuf, uint16_t bufzise)
 	{

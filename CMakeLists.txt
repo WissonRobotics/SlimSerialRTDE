@@ -1,292 +1,209 @@
- 
-
-# CMake instructions to make the static lib
 cmake_minimum_required(VERSION 3.16.0)
 
-set(CMAKE_CXX_STANDARD 20) 
+######################  utils *******************
+include(cmake/utils.cmake)
+include(cmake/ide.cmake)
+
+#######################  get version from version.h*******************
+SlimSerialRTDE_extract_version()
+
  
-project ( SlimSerialRTDE)
+############################ Project Info *******************
+project (SlimSerialRTDE VERSION ${SlimSerialRTDE_VERSION} LANGUAGES CXX)
+message(STATUS "Build SlimSerialRTDE: ${SlimSerialRTDE_VERSION}")
 
-add_definitions("-Wall -g")
-
-add_compile_options(-fsanitize=address)
-add_link_options(-fsanitize=address)
-
-if(${UNIX})
-find_package(Threads REQUIRED)
+############################ build type default as Release *******************
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose Release or Debug" FORCE)
 endif()
+
+############################ choose compiler *******************
+set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 ############################ check system platform*******************
-if(${CMAKE_HOST_UNIX})
-    message("Linux x86_64")
+if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
+    message("Platform is Arm aarch64")
+    set(ARM64   1)
     set(UNIX 1)
-    message(UNIX = ${UNIX})
+    set(WINDOWS 0)
+elseif(${CMAKE_HOST_UNIX})
+    message("Platform is Linux x86_64")
+    set(ARM64   0)
+    set(UNIX 1)
+    set(WINDOWS 0)
 elseif(${CMAKE_HOST_WIN32})
-    message("Windows")
+    message("Platform is Windows")
+    set(ARM64   0)
+    set(UNIX 0)
     set(WINDOWS 1)
     add_definitions(-D_WIN32_WINNT=0x0601)
-    message(WINDOWS = ${WINDOWS})
 endif()
-if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
-    message("Arm aarch64")
-    set(ARM64   1)
-    message(ARM64 = ${ARM64})
-endif()
-
-if(${UNIX})
-    add_compile_options(-fPIC)
-endif()
-
 
  
-if(${UNIX})
-    SET(Boost_USE_STATIC_LIBS ON)
-    set(Boost_USE_STATIC_RUNTIME ON)
-    SET(Boost_USE_MULTITHREAD ON)
-    set(Boost_NO_BOOST_CMAKE ON) 
-elseif(${WINDOWS})
-    set(Boost_NO_WARN_NEW_VERSIONS 1)
-    add_definitions(-D_WIN32_WINNT=0x0601)
-    set(Boost_USE_STATIC_LIBS ON)
-    set(Boost_USE_STATIC_RUNTIME ON)
-    set(Boost_INCLUDE_DIR ${_VCPKG_INSTALLED_DIR}/x64-windows-static-md/include)
-    FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
-endif()
-FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
-SET(BOOST_LIBS ${Boost_SYSTEM_LIBRARY} ${Boost_THREAD_LIBRARY})
-
-if (Boost_FOUND)
-    include_directories(${Boost_INCLUDE_DIRS})
-    link_directories(${Boost_LIBRARY_DIRS})
-    message("found boost Boost_INCLUDE_DIRS=" ${Boost_INCLUDE_DIRS})
-    message("found boost Boost_LIBRARY_DIRS=" ${Boost_LIBRARY_DIRS})
-endif(Boost_FOUND)
-
-
-  
-find_package(fmt REQUIRED) 
-ADD_LIBRARY( loguru
-             src/loguru.cpp 
-             )
-target_include_directories(loguru
-             PRIVATE
-             ${CMAKE_CURRENT_SOURCE_DIR}/include 
-)
- 
-############################ Pybind11 (local subfolder)*******************
-#add_subdirectory(extern/pybind11)
-#include_directories(${pybind11_INCLUDE_DIRS})
-#include_directories(extern/pybind11/include)
-#message("${pybind11_INCLUDE_DIRS}" aaaaaaaaaais ${pybind11_INCLUDE_DIRS})
- 
-
-
-############################ SlimSerialRTDE static library *******************
-ADD_LIBRARY( SlimSerialRTDE
-             src/SlimSerialRTDE.cpp
-             src/AsyncSerial.cpp  
-             )
-target_include_directories(SlimSerialRTDE
-             PRIVATE
-             ${CMAKE_CURRENT_SOURCE_DIR}/include 
-             ${Boost_INCLUDE_DIRS}
-
-)
- 
-if(${UNIX})
-target_link_libraries(SlimSerialRTDE
- pthread dl
- -fPIC
-)
-endif()
-
-target_link_libraries(SlimSerialRTDE
-    ${BOOST_LIBS}
-    loguru
-)
-
-
 if(${WINDOWS})
 include(InstallRequiredSystemLibraries)
 endif()
 include(GNUInstallDirs)
 
+
+
  
-set_property(TARGET SlimSerialRTDE
- PROPERTY PUBLIC_HEADER ${CMAKE_CURRENT_SOURCE_DIR}/include/SlimSerialRTDE.h
- ${CMAKE_CURRENT_SOURCE_DIR}/include/AsyncSerial.h
- ${CMAKE_CURRENT_SOURCE_DIR}/include/loguru.hpp
- ${CMAKE_CURRENT_SOURCE_DIR}/include/slimCircularBuffer.h
- ${CMAKE_CURRENT_SOURCE_DIR}/include/thread_safe_queue.h)
-install(TARGETS SlimSerialRTDE
-    EXPORT SlimSerialRTDETargets  
-    RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-    LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/SlimSerialRTDE
+################## build options #############################
+if(NOT DEFINED SlimSerialRTDE_MASTER_PROJECT)
+    if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+        set(SlimSerialRTDE_MASTER_PROJECT ON)
+    else()
+        set(SlimSerialRTDE_MASTER_PROJECT OFF)
+    endif()
+endif()
+message(SlimSerialRTDE_MASTER_PROJECT = ${SlimSerialRTDE_MASTER_PROJECT})
+ 
+# example options
+option(SlimSerialRTDE_BUILD_EXAMPLE "Build example" ${SlimSerialRTDE_MASTER_PROJECT})
+
+# testing options
+option(SlimSerialRTDE_BUILD_TESTS "Build tests" ${SlimSerialRTDE_MASTER_PROJECT})
+
+# install options
+option(SlimSerialRTDE_INSTALL "Generate the install target" ${SlimSerialRTDE_MASTER_PROJECT})
+
+# sanitizer options
+option(SlimSerialRTDE_SANITIZE_ADDRESS "Enable address sanitizer in tests" OFF)
+
+##################  build static library #############################
+FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
+ 
+find_package(Threads REQUIRED)
+
+find_package(spdlog REQUIRED)
+ 
+set(SlimSerialRTDE_SRCS 
+src/AsyncSerial.cpp
+src/SlimSerialRTDE.cpp
 )
- 
+add_library(SlimSerialRTDE STATIC ${SlimSerialRTDE_SRCS} ${SlimSerialRTDE_ALL_HEADERS})
 
+add_library(SlimSerialRTDE::SlimSerialRTDE ALIAS SlimSerialRTDE)
 
-#find_package(Python COMPONENTS Interpreter Development)
- 
-############################ install python *******************    
-# pybind11_add_module(pySlimSerialRTDE 
-# python_binding/SlimSerialRTDEWrap.cpp
- 
-# src/SlimSerialRTDE.cpp
-# example/Maxwell_SoftArm_SerialClient.cpp
-# example/slimRegister.h)
-# target_link_libraries(pySlimSerialRTDE PRIVATE 
-# SlimSerialRTDE
+set(SlimSerialRTDE_INCLUDES_LEVEL "")
+if(SlimSerialRTDE_SYSTEM_INCLUDES)
+    set(SlimSerialRTDE_INCLUDES_LEVEL "SYSTEM")
+endif()
+
+target_include_directories(SlimSerialRTDE ${SlimSerialRTDE_INCLUDES_LEVEL} PUBLIC 
+"$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
+"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
+
+target_link_libraries(SlimSerialRTDE PUBLIC 
+Boost::system
+Threads::Threads
+spdlog::spdlog
+)
+
+# if(${UNIX})
+# add_compile_options(-fPIC)
+# target_link_libraries(SlimSerialRTDE PUBLIC
+#  pthread dl
+#  -fPIC
 # )
-# target_include_directories(pySlimSerialRTDE
-#      PUBLIC
-#      ${CMAKE_CURRENT_SOURCE_DIR}/include
-#      ${CMAKE_CURRENT_SOURCE_DIR}/example
-# )
-# install(TARGETS pySlimSerialRTDE
-#   COMPONENT python
-#   RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-#   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-#   ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}")
-
-############################ install cmake ******************* 
- 
- 
-
-include(CMakePackageConfigHelpers)
-set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR}/SlimSerialRTDE
-CACHE  PATH "Location of header files" )
-set(LIBRARY_INSTALL_DIR ${CMAKE_INSTALL_LIBDIR}
-CACHE PATH "Location of library files" )
-configure_package_config_file(
-    ${CMAKE_CURRENT_SOURCE_DIR}/SlimSerialRTDEConfig.cmake.in
-    ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SlimSerialRTDE
-    PATH_VARS INCLUDE_INSTALL_DIR LIBRARY_INSTALL_DIR)
- 
-install(FILES  ${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake 
-        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/SlimSerialRTDE 
-        )
-
-
-
-
-############################      example   EXE    *******************
-
-
-
-
-
- 
-
-############################ Begin example WISSON_DUMMU_SERVER  EXE *******************
-# add_executable( wisson_dummy_server
-#                example/wisson_dummy_server.cpp
-#              )
-# target_include_directories(wisson_dummy_server
-#              PRIVATE
-#              ${CMAKE_CURRENT_SOURCE_DIR}/example
-#              ${CMAKE_CURRENT_SOURCE_DIR}/include
-# )
-# TARGET_LINK_LIBRARIES( wisson_dummy_server
-#             SlimSerialRTDE
-# )
-# install(TARGETS wisson_dummy_server
-#     EXPORT wisson_dummy_serverTargets)
-# if(${WINDOWS})
-# install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/example/config.ini
-#         DESTINATION ${CMAKE_INSTALL_BINDIR})
-# else()
-# install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/example/config.ini
-#         DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/build)
 # endif()
-############################ End example WISSON_DUMMU_SERVER  EXE *******************
+
+set_target_properties(SlimSerialRTDE PROPERTIES VERSION ${SlimSerialRTDE_VERSION} SOVERSION ${SlimSerialRTDE_VERSION_MAJOR}.${SlimSerialRTDE_VERSION_MINOR})
+
+
+##################  build example #############################
+if(SlimSerialRTDE_BUILD_EXAMPLE)
+    message(STATUS "Generating example(s)")
+    add_subdirectory(example)
+endif()
+
+
+##################  build tests #############################
+if(SlimSerialRTDE_BUILD_TESTS )
+    message(STATUS "Generating tests")
+    enable_testing()
+    add_subdirectory(tests)
+endif()
+ 
+
+##################  install #############################
+if(SlimSerialRTDE_INSTALL)
+    message(STATUS "Generating install")
+    set(project_config_in "${CMAKE_CURRENT_LIST_DIR}/cmake/SlimSerialRTDEConfig.cmake.in")
+    set(project_config_out "${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfig.cmake")
+    set(config_targets_file "SlimSerialRTDEConfigTargets.cmake")
+    set(version_config_file "${CMAKE_CURRENT_BINARY_DIR}/SlimSerialRTDEConfigVersion.cmake")
+    set(export_dest_dir "${CMAKE_INSTALL_LIBDIR}/cmake/SlimSerialRTDE")
+    set(pkgconfig_install_dir "${CMAKE_INSTALL_LIBDIR}/pkgconfig")
+    set(pkg_config "${CMAKE_BINARY_DIR}/${PROJECT_NAME}.pc")
+
+    # ---------------------------------------------------------------------------------------
+    # Include files
+    # ---------------------------------------------------------------------------------------
+    install(DIRECTORY include/ DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+    install(
+        TARGETS SlimSerialRTDE
+        EXPORT SlimSerialRTDE
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
+
+    # ---------------------------------------------------------------------------------------
+    # Install pkg-config file
+    # ---------------------------------------------------------------------------------------
+    if(IS_ABSOLUTE "${CMAKE_INSTALL_INCLUDEDIR}")
+        set(PKG_CONFIG_INCLUDEDIR "${CMAKE_INSTALL_INCLUDEDIR}")
+    else()
+        set(PKG_CONFIG_INCLUDEDIR "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
+    endif()
+    if(IS_ABSOLUTE "${CMAKE_INSTALL_LIBDIR}")
+        set(PKG_CONFIG_LIBDIR "${CMAKE_INSTALL_LIBDIR}")
+    else()
+        set(PKG_CONFIG_LIBDIR "\${exec_prefix}/${CMAKE_INSTALL_LIBDIR}")
+    endif()
+    get_target_property(PKG_CONFIG_DEFINES SlimSerialRTDE INTERFACE_COMPILE_DEFINITIONS)
+    string(REPLACE ";" " -D" PKG_CONFIG_DEFINES "${PKG_CONFIG_DEFINES}")
+    string(CONCAT PKG_CONFIG_DEFINES "-D" "${PKG_CONFIG_DEFINES}")
+    configure_file("cmake/${PROJECT_NAME}.pc.in" "${pkg_config}" @ONLY)
+    install(FILES "${pkg_config}" DESTINATION "${pkgconfig_install_dir}")
+
+    # ---------------------------------------------------------------------------------------
+    # Install CMake config files
+    # ---------------------------------------------------------------------------------------
+    export(TARGETS SlimSerialRTDE  NAMESPACE SlimSerialRTDE::
+           FILE "${CMAKE_CURRENT_BINARY_DIR}/${config_targets_file}")
+    install(EXPORT SlimSerialRTDE DESTINATION ${export_dest_dir} NAMESPACE SlimSerialRTDE:: FILE ${config_targets_file})
+
+    include(CMakePackageConfigHelpers)
+    configure_package_config_file("${project_config_in}" "${project_config_out}" INSTALL_DESTINATION ${export_dest_dir})
+
+    write_basic_package_version_file("${version_config_file}" COMPATIBILITY SameMajorVersion)
+    install(FILES "${project_config_out}" "${version_config_file}" DESTINATION "${export_dest_dir}")
+
+    # ---------------------------------------------------------------------------------------
+    # Support creation of installable packages
+    # ---------------------------------------------------------------------------------------
+    include(cmake/SlimSerialRTDECPack.cmake)
+endif()
 
 
 
-
-############################ Begin example speaker  EXE *******************
-ADD_LIBRARY( speaker
-               example/speaker.cpp
-             )
-target_include_directories(speaker
-             PRIVATE
-             ${CMAKE_CURRENT_SOURCE_DIR}/example
-             ${CMAKE_CURRENT_SOURCE_DIR}/include
+##################  uninstall #############################
+# make uninstall
+add_custom_target("uninstall" COMMENT "Uninstall installed files")
+add_custom_command(
+    TARGET "uninstall"
+    POST_BUILD
+    COMMENT "Uninstall files with install_manifest.txt"
+    COMMAND xargs rm -vf < install_manifest.txt || echo Nothing in
+            install_manifest.txt to be uninstalled!
+    COMMAND xargs rm -rf  /usr/local/include/SlimSerialRTDE
+    COMMAND xargs rm -rf  /usr/local/lib/cmake/SlimSerialRTDE
 )
-TARGET_LINK_LIBRARIES( speaker
-            SlimSerialRTDE
-)
+
+
+
 
  
-############################ End example speaker  EXE *******************
-
-# find_package(jsoncpp REQUIRED) 
-
-
-
-ADD_LIBRARY( Maxwell_SoftArm_SerialClient
-             example/monos_arm/Maxwell_SoftArm_SerialClient.cpp
-             )
-target_include_directories(Maxwell_SoftArm_SerialClient PUBLIC
-${CMAKE_CURRENT_SOURCE_DIR}/include
-${CMAKE_CURRENT_SOURCE_DIR}/example/monos_arm
-)
-target_link_libraries(Maxwell_SoftArm_SerialClient
-SlimSerialRTDE
-loguru
-fmt::fmt
-)
-
-ADD_LIBRARY( monos_arm
-             example/monos_arm/monos_arm.cpp 
- 
-             )
-target_include_directories(monos_arm PUBLIC
-${CMAKE_CURRENT_SOURCE_DIR}/include
-${CMAKE_CURRENT_SOURCE_DIR}/example/monos_arm
-${jsoncpp_INCLUDE_DIRS}
-)
-target_link_libraries(monos_arm
-Maxwell_SoftArm_SerialClient
-fmt::fmt 
-loguru
-)
-
-
-
-############################ begin modbus client example##########
-
-add_executable( modbus_client
-             example/modbus_client.cpp 
-             )
-target_include_directories(modbus_client PUBLIC
-${CMAKE_CURRENT_SOURCE_DIR}/include 
-)
-target_link_libraries(modbus_client
-SlimSerialRTDE
-loguru
-fmt::fmt
-)
-############################ end modbus client example##########
-
-############################ Begin example SlimSerialMain  EXE *******************
-add_executable( main
-               "example/main.cpp"
-             )
-target_include_directories(main
-             PRIVATE
-             ${CMAKE_CURRENT_SOURCE_DIR}/include
-             ${CMAKE_CURRENT_SOURCE_DIR}/example/monos_arm/
-              
- 
-)
-TARGET_LINK_LIBRARIES( main
-            SlimSerialRTDE
-            Maxwell_SoftArm_SerialClient
-            monos_arm
-            loguru
-)
-
-############################ End example SlimSerialMain  EXE *******************

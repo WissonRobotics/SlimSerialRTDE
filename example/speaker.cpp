@@ -14,7 +14,7 @@
 #include <future>
 namespace SPEAKER {
 
-SPEAKER::SPEAKER(std::string portname, int baudrate) : slimSerial("Speaker") {
+SPEAKER::SPEAKER(std::string portname, int baudrate) : slimSerial() {
   frameCallbackFunc = std::bind(&SPEAKER::frameCallback, this, std::placeholders::_1,std::placeholders::_2);
   slimSerial.addRxFrameCallback(frameCallbackFunc);
 
