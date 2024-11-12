@@ -572,7 +572,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
         }
       }
 
-    } else if (_frameType == SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM) {
+    } else if (_frameType == SLIMSERIAL_FRAME_TYPE_MODBUS_SERVER_NUM) {
       // src + funcode + data + crc16
       while ((remainingBytes = circularBuffer.availableBytes()) >= 8) {
         // check address. disabled by default
@@ -581,9 +581,104 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           // check funcode
           uint16_t funcodeIn = circularBuffer.peekAt(1);
           if (funcodeIn == 0x03 || funcodeIn == 0x06 || funcodeIn == 0x10) {
-            uint16_t expectedFrameBytes = 8;
-            if (funcodeIn == 0x10) {
-              expectedFrameBytes += (uint16_t)(circularBuffer.peekAt(6)) + 1;
+            
+            uint16_t expectedFrameBytes=8;
+            if (funcodeIn == 0x03) {
+              expectedFrameBytes  = 8;
+            }
+            else if(funcodeIn == 0x06){
+              expectedFrameBytes  =  circularBuffer.availableBytes();//special treatment for 0x06
+            }
+            else if (funcodeIn == 0x10) {
+              expectedFrameBytes  =  (uint16_t)(circularBuffer.peekAt(6)) + 9;
+            }
+ 
+
+            // got enough rx bytes
+            if (remainingBytes >= expectedFrameBytes) {
+              // check crc
+              if (circularBuffer.calculateCRC(expectedFrameBytes - 2) ==
+                  circularBuffer.peekAt_U16(expectedFrameBytes - 2)) {
+                _inFrameBytes = expectedFrameBytes;
+                circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+                remainingBytes -= _inFrameBytes;
+                parserResult = WS_OK;
+                m_logger->debug("[frame parser] [Success] Decoded frame type 3 MODBUS with {} bytes", _inFrameBytes);
+                //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                m_totalRxFrames++;
+
+                // dealing frame
+                if (frameCallback) {
+                  m_tic_frameCallback = getTimeUTC();
+                  frameCallback((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+                }
+
+                // notificy rx frame handle complete
+
+                // std::unique_lock<std::mutex> lk(frameCompleteMtx);
+                // frameCompleteFlag = true;
+                // frameCompleteCV.notify_one();
+                continue;
+              } else {  // bad crc
+                if(funcodeIn == 0x06 && circularBuffer.availableBytes()<256){//special treatment for 0x06
+                  m_logger->debug("writing maybe incomplete, continue receving");
+                  waitingForMore = true;
+                  break;
+                }
+                else{
+                  m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                      circularBuffer.calculateCRC(expectedFrameBytes - 2),
+                      circularBuffer.peekAt_U16(expectedFrameBytes - 2));
+                  int discardN = circularBuffer.discardUntilNext(default_address);
+                  remainingBytes -= discardN;
+                  m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  continue;
+                }
+              }
+            } else {  // not rx finished
+              m_logger->debug("incomplete frame, continue receving");
+              waitingForMore = true;
+              break;
+            }
+          } else {
+            // illegal funcode
+
+            m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+            int discardN = circularBuffer.discardUntilNext(default_address);
+            remainingBytes -= discardN;
+            m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+            continue;
+          }
+        } else {
+          // illegal address
+          m_logger->warn("illegal address 0x{:2X}", addressIn);
+          int discardN = circularBuffer.discardUntilNext(default_address);
+          remainingBytes -= discardN;
+          m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+          printRxBuffer();
+          continue;
+        }
+      }
+    }else if (_frameType == SLIMSERIAL_FRAME_TYPE_MODBUS_CLIENT_NUM) {
+      // src + funcode + data + crc16
+      while ((remainingBytes = circularBuffer.availableBytes()) >= 7) {
+        // check address. disabled by default
+        uint8_t addressIn = circularBuffer.peekAt(0);
+        if (applyAddressFilter(addressIn)) {
+          // check funcode
+          uint16_t funcodeIn = circularBuffer.peekAt(1);
+          if (funcodeIn == 0x03 || funcodeIn == 0x06 || funcodeIn == 0x10) {
+
+
+            uint16_t expectedFrameBytes=0;
+            if (funcodeIn == 0x03) {
+              expectedFrameBytes  = (uint8_t)(circularBuffer.peekAt(2)) + 5;
+            }
+            else if(funcodeIn == 0x06){
+              expectedFrameBytes  =  circularBuffer.availableBytes();//special treatment for 0x06
+            }
+            else if (funcodeIn == 0x10) {
+              expectedFrameBytes  =  8;
             }
 
             // got enough rx bytes
@@ -612,14 +707,20 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                 // frameCompleteCV.notify_one();
                 continue;
               } else {  // bad crc
-
-                m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
-                    circularBuffer.calculateCRC(expectedFrameBytes - 2),
-                    circularBuffer.peekAt_U16(expectedFrameBytes - 2));
-                int discardN = circularBuffer.discardUntilNext(default_address);
-                remainingBytes -= discardN;
-                m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
-                continue;
+                if(funcodeIn == 0x06 && circularBuffer.availableBytes()<256){//special treatment for 0x06
+                  m_logger->debug("writing reply maybe incomplete, continue receving");
+                  waitingForMore = true;
+                  break;
+                }
+                else{
+                  m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                      circularBuffer.calculateCRC(expectedFrameBytes - 2),
+                      circularBuffer.peekAt_U16(expectedFrameBytes - 2));
+                  int discardN = circularBuffer.discardUntilNext(default_address);
+                  remainingBytes -= discardN;
+                  m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  continue;
+                }
               }
             } else {  // not rx finished
               m_logger->debug("incomplete frame, continue receving");
@@ -645,7 +746,9 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           continue;
         }
       }
-    } else if (_frameType == SLIMSERIAL_FRAME_TYPE_4) {
+    }  
+    
+    else if (_frameType == SLIMSERIAL_FRAME_TYPE_NONE_NUM) {
       // do nothing for rx
       std::unique_lock<std::mutex> lock_(readBufferMtx);
       readBufferCV.notify_one();
@@ -659,9 +762,10 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
         ((_frameType == SLIMSERIAL_FRAME_TYPE_1_NUM) && waitingForMore) ||
         ((_frameType == SLIMSERIAL_FRAME_TYPE_2_NUM) && remainingBytes < 4) ||
         ((_frameType == SLIMSERIAL_FRAME_TYPE_2_NUM) && waitingForMore) ||
-        ((_frameType == SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM)) ||
+        ((_frameType == SLIMSERIAL_FRAME_TYPE_MODBUS_SERVER_NUM)) ||
+        ((_frameType == SLIMSERIAL_FRAME_TYPE_MODBUS_CLIENT_NUM)) ||
         ((_frameType == SLIMSERIAL_FRAME_TYPE_0_NUM) && remainingBytes == 0) ||
-        ((_frameType == SLIMSERIAL_FRAME_TYPE_4))) {
+        ((_frameType == SLIMSERIAL_FRAME_TYPE_NONE_NUM))) {
       break;
     }
   }

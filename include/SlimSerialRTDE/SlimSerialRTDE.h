@@ -66,16 +66,18 @@ typedef struct SLIMSERIAL_FRAME_TYPE_3_MODBUS_TAG {
 		uint16_t dataU16[INTERNAL_MAX_FRAME_SIZE/2];
 	} payload;
 
-}SLIMSERIAL_FRAME_TYPE_3_MODBUS;
+}SLIMSERIAL_FRAME_TYPE_MODBUS;
 #pragma pack()
 
 typedef enum
 {
-  SLIMSERIAL_FRAME_TYPE_0_NUM			= 0,
-  SLIMSERIAL_FRAME_TYPE_1_NUM			= 1,
-  SLIMSERIAL_FRAME_TYPE_2_NUM			= 2,
-  SLIMSERIAL_FRAME_TYPE_3_MODBUS_NUM 	= 3,
-  SLIMSERIAL_FRAME_TYPE_4          	= 4
+  SLIMSERIAL_FRAME_TYPE_0_NUM				= 0,
+  SLIMSERIAL_FRAME_TYPE_1_NUM				= 1,
+  SLIMSERIAL_FRAME_TYPE_2_NUM				= 2,
+  SLIMSERIAL_FRAME_TYPE_MODBUS_SERVER_NUM 	= 3,
+  SLIMSERIAL_FRAME_TYPE_MODBUS_CLIENT_NUM 	= 4,
+
+  SLIMSERIAL_FRAME_TYPE_NONE_NUM        	= 99
 
 }SLIMSERIAL_FRAME_TYPE_NUM;
 ;
@@ -104,6 +106,10 @@ public:
 
 	std::vector<uint8_t> assembleTxFrameWithAddress(uint8_t des, uint8_t fcode, std::vector<uint8_t> const& payload = {});
 	std::vector<uint8_t> assembleTxFrameWithAddress(uint8_t des, uint8_t fcode, uint8_t *pData,uint16_t datasize);
+
+	
+
+
 
 	std::size_t transmitFrame(std::vector<uint8_t> const& txData);
  	std::size_t transmitFrame(uint8_t *pData,uint16_t datasize);
