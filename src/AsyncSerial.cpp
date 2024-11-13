@@ -152,6 +152,9 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
     ioctl(native, TIOCGSERIAL, &serial);
     serial.flags |= ASYNC_LOW_LATENCY; // (0x2000)
     ioctl(native, TIOCSSERIAL, &serial);
+    usleep(2000); //required to make flush work, for some reason
+    tcflush(native,TCIOFLUSH);
+
 #endif
 
    
