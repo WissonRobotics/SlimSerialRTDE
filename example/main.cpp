@@ -7,7 +7,7 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "loguru.hpp"
+#include <loguru/loguru.hpp>
 #include "SlimSerialServer.h" 
 #include "Maxwell_SoftArm_SerialClient.h"
 #include <memory>
