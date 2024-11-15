@@ -24,17 +24,17 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 ############################ check system platform*******************
 if(CMAKE_HOST_SYSTEM_PROCESSOR MATCHES "aarch64")
-    message("Platform is Arm aarch64")
+    # message("Platform is Arm aarch64")
     set(ARM64   1)
     set(UNIX 1)
     set(WINDOWS 0)
 elseif(${CMAKE_HOST_UNIX})
-    message("Platform is Linux x86_64")
+    # message("Platform is Linux x86_64")
     set(ARM64   0)
     set(UNIX 1)
     set(WINDOWS 0)
 elseif(${CMAKE_HOST_WIN32})
-    message("Platform is Windows")
+    # message("Platform is Windows")
     set(ARM64   0)
     set(UNIX 0)
     set(WINDOWS 1)
@@ -58,7 +58,7 @@ if(NOT DEFINED SlimSerialRTDE_MASTER_PROJECT)
         set(SlimSerialRTDE_MASTER_PROJECT OFF)
     endif()
 endif()
-message(SlimSerialRTDE_MASTER_PROJECT = ${SlimSerialRTDE_MASTER_PROJECT})
+# message(SlimSerialRTDE_MASTER_PROJECT = ${SlimSerialRTDE_MASTER_PROJECT})
  
 # example options
 option(SlimSerialRTDE_BUILD_EXAMPLE "Build example" ${SlimSerialRTDE_MASTER_PROJECT})
@@ -73,6 +73,9 @@ option(SlimSerialRTDE_INSTALL "Generate the install target" ${SlimSerialRTDE_MAS
 option(SlimSerialRTDE_SANITIZE_ADDRESS "Enable address sanitizer in tests" OFF)
 
 ##################  build static library #############################
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
 FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
  
 find_package(Threads REQUIRED)
