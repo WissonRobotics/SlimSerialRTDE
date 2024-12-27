@@ -74,7 +74,7 @@ private:
 
 	
 
-	std::array<uint8_t,4096> m_txBuffer;
+	std::array<uint8_t,DEFAULT_CIRCULAR_BUF_SIZE> m_txBuffer;
 
 	boost::asio::io_context io_context;
 	boost::asio::serial_port serial_port;

@@ -81,6 +81,15 @@ typedef enum
 
 }SLIMSERIAL_FRAME_TYPE_NUM;
 ;
+
+
+typedef enum
+{
+  SLIMSERIAL_TXRX_NORMAL = 0,
+  SLIMSERIAL_TXRX_TRANSPARENT = 1
+}SLIMSERIAL_PROXY_MODE;
+
+
  
 #define ADDRESS_FILTER_MAX_LEN 10
 #define FUNCODE_FILTER_MAX_LEN 20
@@ -110,6 +119,9 @@ public:
 	
 
 
+	
+	std::size_t transmitDataLL(uint8_t *pdata, uint16_t datasize);
+	std::size_t transmitFrameLL(uint8_t des, uint8_t fcode, uint8_t* pData, uint16_t datasize);
 
 	std::size_t transmitFrame(std::vector<uint8_t> const& txData);
  	std::size_t transmitFrame(uint8_t *pData,uint16_t datasize);
@@ -193,10 +205,29 @@ public:
 		return WS_OK;
 	};
 
+		//proxy
+	// void proxyDelegateMessage(uint8_t *pData,uint16_t databytes);
+	// void enableProxy(SlimSerialRTDE *proxy_port_);
+	// void disableProxy();
+	// void ackProxy();
+	uint32_t getBaudrate();
+	void setProxyPort(SlimSerialRTDE * proxy_port_);
+	SlimSerialRTDE * getProxyPort();
+	SLIMSERIAL_PROXY_MODE getProxyMode();
+	void setProxyMode(SLIMSERIAL_PROXY_MODE mode_);
+	void attachProxySerialPortGetter(std::function< SlimSerialRTDE * (uint8_t)> getProxySerialPort_);
+	// SlimSerialRTDE *m_proxy_port;
+	// SLIMSERIAL_PROXY_MODE m_proxy_mode; 
+
+
+
 	std::shared_ptr<spdlog::logger> m_logger; 
+	std::string getPortname();
 private:
 	
 	class SlimSerialRTDEImpl;
 	std::unique_ptr<SlimSerialRTDEImpl> pimpl_;
+
+
 };
  

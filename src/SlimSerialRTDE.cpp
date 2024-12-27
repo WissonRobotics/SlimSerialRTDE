@@ -14,7 +14,7 @@
 
 class SlimSerialRTDE::SlimSerialRTDEImpl : public AsyncSerial {
  public:
-  SlimSerialRTDEImpl();
+  SlimSerialRTDEImpl(SlimSerialRTDE *father_);
   ~SlimSerialRTDEImpl();
 
   WS_STATUS transmitReceiveFrame(std::vector<uint8_t> const& txframe, uint32_t timeoutMS = 20);
@@ -42,6 +42,19 @@ class SlimSerialRTDE::SlimSerialRTDEImpl : public AsyncSerial {
 
   WS_STATUS spinWait(std::function<bool()>&& waitCondition, int timeoutMS, int intervalMS = 0);
 
+		//proxy
+  uint32_t getBaudrate();
+	void proxyDelegateMessage(uint8_t *pData,uint16_t databytes);
+	void enableProxy(uint8_t proxySerialIndex,uint32_t proxyPortBaudrate_=0);
+	void disableProxy();
+	void ackProxy();
+	SLIMSERIAL_PROXY_MODE getProxyMode();
+  SlimSerialRTDE *m_proxy_port;
+	SLIMSERIAL_PROXY_MODE m_proxy_mode; 
+  uint32_t m_proxy_port_nominal_baudrate;
+  std::function< SlimSerialRTDE * (uint8_t)> getProxySerialPortFunc; 
+
+
   bool dataFlag;
   void rxDataCallback();
   WS_STATUS frameParser();
@@ -55,10 +68,13 @@ class SlimSerialRTDE::SlimSerialRTDEImpl : public AsyncSerial {
   std::condition_variable frameCompleteCV;
   std::function<void(uint8_t* rxFrame, uint32_t databytes)> frameCallback;
 
+
+
   std::mutex readBufferMtx;
   std::condition_variable readBufferCV;
 
-  std::array<uint8_t, 512> _inFrame;
+  std::array<uint8_t, INTERNAL_MAX_FRAME_SIZE>  m_display_buf;
+  std::array<uint8_t, INTERNAL_MAX_FRAME_SIZE> _inFrame;
   uint32_t _inFrameBytes;
 
   uint8_t default_headers[2];
@@ -90,9 +106,11 @@ class SlimSerialRTDE::SlimSerialRTDEImpl : public AsyncSerial {
   uint64_t m_tic_frameParserEnd = 0;
 
   bool m_isServer = true;
+  SlimSerialRTDE *m_father;
 };
 
-SlimSerialRTDE::SlimSerialRTDEImpl::SlimSerialRTDEImpl(): AsyncSerial() {
+SlimSerialRTDE::SlimSerialRTDEImpl::SlimSerialRTDEImpl(SlimSerialRTDE *father_): AsyncSerial() {
+  m_father = father_;
   addRxDataCallback([this]() { rxDataCallback(); });
   // frameParserThread = std::make_unique<std::jthread>(
   // 	[this](std::stop_token stop_token)
@@ -225,10 +243,12 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
     uint8_t* pData, uint16_t datasize, uint32_t timeoutMS) {
   WS_STATUS ret = WS_FAIL;
 
+
+
   // aync wait for ack response, spurious wake-up is handled by predate function
   // upon receiving the frameCompleteCV,  the registered framecallback function should have already been excecuted.
   std::unique_lock<std::mutex> lock_(frameCompleteMtx);
-  m_logger->debug("[TransmitReceive] [Start]");
+  m_logger->debug("[{}] [TransmitReceive] [Start]",m_portname);
   frameCompleteFlag = false;
 
   m_tic_frameStart = getTimeUTC();
@@ -236,7 +256,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   if (datasize > 0) {
     std::size_t txedsize = transmit(pData, datasize);
     if (txedsize != datasize) {
-      m_logger->warn("[TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}", txedsize, datasize);
+      m_logger->warn("[{}] [TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}",m_portname, txedsize, datasize);
       frameCompleteFlag = true;
       m_tic_frameComplete = getTimeUTC();
       m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -279,9 +299,9 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   frameCompleteFlag = true;
 
   if (ret == WS_OK) {
-    m_logger->debug("[TransmitReceive] [Success]");
+    m_logger->debug("[{}][TransmitReceive] [Success]",m_portname);
   } else {
-    m_logger->debug("[TransmitReceive] [Timeout]");
+    m_logger->debug("[{}][TransmitReceive] [Timeout]",m_portname);
   }
 
   return ret;
@@ -302,6 +322,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
 }
 
 uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::readBuffer(uint8_t* pDes, uint32_t nBytes, uint32_t timeoutMS) {
+
+  m_logger->debug("[{}] Reading buffer available bytes = {}", m_portname,circularBuffer.availableBytes());
   uint32_t readN = circularBuffer.out(pDes, nBytes);
 
   if (readN < nBytes) {
@@ -313,11 +335,11 @@ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::readBuffer(uint8_t* pDes, uint32_t 
             lock_, timeoutPoint, [&]() { return circularBuffer.availableBytes() >= remainingBytes; })) {
       readN += circularBuffer.out(pDes, remainingBytes);
 
-      m_logger->debug("Reading buffer successfully {} nBytes", readN);
+      m_logger->debug("[{}] Reading buffer successfully {} bytes", m_portname, readN);
     } else {
       readN += circularBuffer.out(pDes, remainingBytes);
 
-      m_logger->debug("Reading buffer Failed, requesting {} but only got {} nBytes ", nBytes, readN);
+      m_logger->warn("[{}] Reading buffer Failed, requesting {} but only got {} nBytes ", m_portname, nBytes, readN);
     }
   }
 
@@ -337,9 +359,8 @@ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::clearRxBuffer() {
 }
 
 void SlimSerialRTDE::SlimSerialRTDEImpl::printRxBuffer() {
-  std::array<uint8_t,4096> buf;
-  uint32_t readlen = circularBuffer.peek(&buf[0], circularBuffer.availableBytes()); ;
-  m_logger->trace("Rxbuffer has {} bytes: {}",readlen,spdlog::to_hex(std::begin(buf), std::begin(buf) + readlen));
+  uint32_t readlen = circularBuffer.peek(&m_display_buf[0], circularBuffer.availableBytes()); ;
+  m_logger->trace("{} Rxbuffer has {} bytes: {}",m_portname,readlen,spdlog::to_hex(std::begin(m_display_buf), std::begin(m_display_buf) + readlen));
 }
 
 // this function will decoding all the available bytes in the rx buffer, calling the frame callback in sequence, until
@@ -352,7 +373,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
   while (true) {
     if (remainingBytes == 0) return WS_FAIL;
 
-    m_logger->debug("[frame parser] [Start] Rx has {} bytes", remainingBytes);
+    m_logger->debug("[{}] [frame parser] [Start] Rx has {} bytes",m_portname, remainingBytes);
     printRxBuffer();
 
     // type 0 is treating any data to be a valid frame. so simply read out all the data and call framecallback
@@ -363,7 +384,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
       remainingBytes -= _inFrameBytes;
 
       parserResult = WS_OK;
-      m_logger->debug("[frame parser] [Success] decoded a frame type 0 with {} bytes", _inFrameBytes);
+      m_logger->debug("[{}] [frame parser] [Success] decoded a frame type 0 with {} bytes",m_portname, _inFrameBytes);
       m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
    
       // dealing frame
@@ -382,103 +403,147 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
       // 5+N+2
       // Header1(5A) + Header2(A5) + Src + dataBytes +  Funcode  + data + crc16
       //  dataBytes =   sizeof(data)
-      while ((remainingBytes = circularBuffer.availableBytes()) >= 7) {
-        // check header
-        uint8_t headersIn[2] = {0, 0};
-        headersIn[0] = circularBuffer.peekAt(0);
-        headersIn[1] = circularBuffer.peekAt(1);
-        if (headersIn[0] == default_headers[0] && headersIn[1] == default_headers[1]) {
-          // check address
-          uint8_t addressIn = circularBuffer.peekAt(2);
-          if (applyAddressFilter(addressIn)) {
-            // check funcode
-            uint8_t funcodeIn = circularBuffer.peekAt(4);
-            if (applyFuncodeFilter(funcodeIn)) {
-              // check length
-              uint16_t expectedFrameBytes = circularBuffer.peekAt(3) + 7;
-              if (expectedFrameBytes <= lengthFilterMax) {
-                // got enough rx bytes
-                if (remainingBytes >= expectedFrameBytes) {
-                  // check crc
-                  if (circularBuffer.calculateCRC(expectedFrameBytes - 2) ==
-                      circularBuffer.peekAt_U16(expectedFrameBytes - 2)) {
-                    // store frame
-                    _inFrameBytes = expectedFrameBytes;
-                    circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
-                    remainingBytes -= _inFrameBytes;
-                    parserResult = WS_OK;
-                    m_logger->debug("[frame parser] [Success] Decoded frame type 1 with {} bytes", _inFrameBytes);
-                    //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
-                    m_totalRxFrames++;
+      if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+        while ((remainingBytes = circularBuffer.availableBytes()) >= 7) {
+          // check header
+          uint8_t headersIn[2] = {0, 0};
+          headersIn[0] = circularBuffer.peekAt(0);
+          headersIn[1] = circularBuffer.peekAt(1);
+          if (headersIn[0] == default_headers[0] && headersIn[1] == default_headers[1]) {
+            // check address
+            uint8_t addressIn = circularBuffer.peekAt(2);
+            if (applyAddressFilter(addressIn)) {
+              // check funcode
+              uint8_t funcodeIn = circularBuffer.peekAt(4);
+              if (applyFuncodeFilter(funcodeIn)) {
+                // check length
+                uint16_t expectedFrameBytes = circularBuffer.peekAt(3) + 7;
+                if (expectedFrameBytes <= lengthFilterMax) {
+                  // got enough rx bytes
+                  if (remainingBytes >= expectedFrameBytes) {
+                    // check crc
+                    if (circularBuffer.calculateCRC(expectedFrameBytes - 2) ==
+                        circularBuffer.peekAt_U16(expectedFrameBytes - 2)) {
+                      // store frame
+                      _inFrameBytes = expectedFrameBytes;
+                      circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+                      remainingBytes -= _inFrameBytes;
+                      parserResult = WS_OK;
+                      m_logger->debug("[{}] [frame parser] [Success] Decoded frame type 1 with {} bytes",m_portname, _inFrameBytes);
+                      //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                      m_totalRxFrames++;
 
-                    // dealing frame
-                    if (frameCallback) {
-                      m_tic_frameCallback = getTimeUTC();
-                      frameCallback((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+                      if(funcodeIn == 0xD1){
+												//enable proxy
+												uint8_t proxyPortIndex_ =  _inFrame[5] ;
+												uint32_t proxyPortBaudrate_= _inFrame[6] | ((uint32_t)_inFrame[7])<<8 | ((uint32_t)_inFrame[8])<<16 | ((uint32_t)_inFrame[9])<<24;
+												enableProxy(proxyPortIndex_,proxyPortBaudrate_);
+												ackProxy();
+											}
+                      else if(funcodeIn == 0xD0){
+                         disableProxy();
+												 ackProxy();
+                      }
+											else{
+                        // dealing frame
+                        if (frameCallback) {
+                          m_tic_frameCallback = getTimeUTC();
+                          frameCallback((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+                        }
+
+                        // notificy rx frame handle complete
+
+                        // std::unique_lock<std::mutex> lk(frameCompleteMtx);
+                        // frameCompleteFlag = true;
+                        // frameCompleteCV.notify_one();
+                        continue;
+                      }
+                    } else {  // bad crc
+
+                      m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                          circularBuffer.calculateCRC(expectedFrameBytes - 2),
+                          circularBuffer.peekAt_U16(expectedFrameBytes - 2));
+                      std::array<uint8_t,256> badframe_buf;
+                      circularBuffer.peek(&badframe_buf[0], expectedFrameBytes);
+                      m_logger->warn("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
+
+                      int discardN = circularBuffer.discardUntilNext(default_headers[0]);
+                      remainingBytes -= discardN;
+                      m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                      printRxBuffer();
+                      continue;
                     }
-
-                    // notificy rx frame handle complete
-
-                    // std::unique_lock<std::mutex> lk(frameCompleteMtx);
-                    // frameCompleteFlag = true;
-                    // frameCompleteCV.notify_one();
-                    continue;
-                  } else {  // bad crc
-
-                    m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
-                        circularBuffer.calculateCRC(expectedFrameBytes - 2),
-                        circularBuffer.peekAt_U16(expectedFrameBytes - 2));
-                    std::array<uint8_t,256> badframe_buf;
-                    circularBuffer.peek(&badframe_buf[0], expectedFrameBytes);
-                    m_logger->warn("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
-
-                    int discardN = circularBuffer.discardUntilNext(default_headers[0]);
-                    remainingBytes -= discardN;
-                    m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
-                    printRxBuffer();
-                    continue;
+                  } else {  // not rx finished
+                    m_logger->debug("incomplete frame, continue receving");
+                    waitingForMore = true;
+                    break;
                   }
-                } else {  // not rx finished
-                  m_logger->debug("incomplete frame, continue receving");
-                  waitingForMore = true;
-                  break;
+                } else {  // illegal length
+                  m_logger->warn("illegal length 0x{:2X}", expectedFrameBytes);
+                  int discardN = circularBuffer.discardUntilNext(default_headers[0]);
+                  remainingBytes -= discardN;
+                  m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                  printRxBuffer();
+
+                  continue;
                 }
-              } else {  // illegal length
-                m_logger->warn("illegal length 0x{:2X}", expectedFrameBytes);
+              } else {
+                // illegal funcode
+                m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+
                 int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                 remainingBytes -= discardN;
                 m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                 printRxBuffer();
-
                 continue;
               }
-            } else {
-              // illegal funcode
-              m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
-
+            } else {  // illegal address
+              m_logger->warn("illegal address 0x{:2X}", addressIn);
               int discardN = circularBuffer.discardUntilNext(default_headers[0]);
               remainingBytes -= discardN;
               m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
               printRxBuffer();
               continue;
             }
-          } else {  // illegal address
-            m_logger->warn("illegal address 0x{:2X}", addressIn);
+          } else {  // illegal header
+            m_logger->warn("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
             int discardN = circularBuffer.discardUntilNext(default_headers[0]);
             remainingBytes -= discardN;
             m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
             printRxBuffer();
             continue;
           }
-        } else {  // illegal header
-          m_logger->warn("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
-          int discardN = circularBuffer.discardUntilNext(default_headers[0]);
-          remainingBytes -= discardN;
-          m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
-          printRxBuffer();
-          continue;
         }
       }
+      else if(getProxyMode()==SLIMSERIAL_TXRX_TRANSPARENT){ // 
+          _inFrameBytes = remainingBytes;
+          circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
+          remainingBytes -= _inFrameBytes;
+				  m_totalRxFrames++;
+          
+				//in transparent mode, only check FUNC_DISABLE_PROXY to disable proxy
+				if( _inFrameBytes>=7 &&
+            _inFrame[0]==0x5A &&
+            _inFrame[1]==0xA5 &&
+            _inFrame[2]==0x00 &&
+            _inFrame[3]==0x00 &&
+            _inFrame[4]==0xD0
+					){
+					uint16_t crc1 = SLIM_CURCULAR_BUFFER::calculateCRC(&(_inFrame[0]), 5);
+					uint16_t crc2 = _inFrame[5] | ((uint16_t)_inFrame[6])<<8 ;
+					if(crc1 == crc2){
+						//disable proxy
+            m_logger->info("{} Disabling proxy ",m_portname);
+						disableProxy();
+						ackProxy();
+					}
+				}
+				else{
+          m_logger->info("{} delegating {} bytes to {}",m_portname, _inFrameBytes, m_proxy_port->getPortname());
+					proxyDelegateMessage(&(_inFrame[0]), _inFrameBytes);
+				}
+      }
+         
     } else if (_frameType == SLIMSERIAL_FRAME_TYPE_2_NUM) {
       // 2+N+2
       // Header1(FF) + Header2(FF) + databytes + data + crc16
@@ -771,7 +836,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
   }
 
   m_tic_frameParserEnd = getTimeUTC();
-  m_logger->debug("[frame parser] [Finished] remaining {} bytes", circularBuffer.availableBytes());
+  m_logger->debug("[{}] [frame parser] [Finished] remaining {} bytes",m_portname, circularBuffer.availableBytes());
   return parserResult;
 }
 
@@ -818,6 +883,74 @@ void SlimSerialRTDE::SlimSerialRTDEImpl::addCRC(uint8_t* pData, uint16_t bytesIn
 uint16_t SlimSerialRTDE::SlimSerialRTDEImpl::calculateCRC(uint8_t* buffer, uint32_t datasize) {
   return SLIM_CURCULAR_BUFFER::calculateCRC(buffer, datasize);
 }
+ 
+
+ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::getBaudrate(){
+  return m_baudrate;
+ }
+
+  void SlimSerialRTDE::SlimSerialRTDEImpl::proxyDelegateMessage(uint8_t *pData,uint16_t databytes){
+    m_proxy_port->transmitDataLL(pData,databytes);
+  }
+
+  void SlimSerialRTDE::SlimSerialRTDEImpl::ackProxy(){
+      transmit(assembleTxFrameWithAddress(0x00,0xD2,NULL,0));
+  }
+  
+  SLIMSERIAL_PROXY_MODE SlimSerialRTDE::SlimSerialRTDEImpl::getProxyMode() {
+
+      return m_proxy_mode;
+  }
+  
+
+
+  void SlimSerialRTDE::SlimSerialRTDEImpl::enableProxy(uint8_t proxySerialIndex,uint32_t proxy_port_baudrate ){
+ 
+    SlimSerialRTDE * proxy_port_ = NULL;
+    if(getProxySerialPortFunc){
+      proxy_port_ = getProxySerialPortFunc(proxySerialIndex);
+    }
+ 
+    if(proxy_port_){
+      //record baudrate of  proxy serial port	
+      if(!m_proxy_port && proxy_port_baudrate==0){
+        m_proxy_port_nominal_baudrate = proxy_port_->getBaudrate();
+        m_logger->info("[]####################Record nominal baudrate {}",m_proxy_port_nominal_baudrate);
+      }
+
+      if(m_proxy_port!=NULL && m_proxy_port!=proxy_port_){//stop previous proxy
+        disableProxy();
+      }
+
+      m_proxy_port = proxy_port_;
+      m_proxy_mode = SLIMSERIAL_TXRX_TRANSPARENT; 
+      m_proxy_port->setProxyMode(SLIMSERIAL_TXRX_TRANSPARENT);
+      m_proxy_port->setProxyPort(this->m_father);
+    }
+
+
+    if(proxy_port_baudrate==0){
+      m_proxy_port->setBaudrate(m_proxy_port_nominal_baudrate);
+    }
+		if(proxy_port_baudrate==1000000 || proxy_port_baudrate==115200 || proxy_port_baudrate==921600){
+			m_proxy_port->setBaudrate(proxy_port_baudrate);
+		}
+
+  }
+  void SlimSerialRTDE::SlimSerialRTDEImpl::disableProxy(){
+    if(m_proxy_port!=NULL){
+      m_proxy_port->transmitFrameLL(0x00,0xD0,NULL,0);//chain
+      //restore baudrate if necessary
+		  m_proxy_port->setBaudrate(m_proxy_port_nominal_baudrate);
+      m_proxy_port->setProxyMode(SLIMSERIAL_TXRX_NORMAL);
+      m_proxy_port->setProxyPort(NULL);
+    }
+    m_proxy_mode = SLIMSERIAL_TXRX_NORMAL;
+    m_proxy_port = NULL;
+  }
+ 
+
+
 
 /***************************************************** SlimSerialRTDEImpl  END
  * ***********************************************************************/
@@ -826,7 +959,7 @@ uint16_t SlimSerialRTDE::SlimSerialRTDEImpl::calculateCRC(uint8_t* buffer, uint3
  * ***********************************************************************/
 
 SlimSerialRTDE::SlimSerialRTDE()
-    : pimpl_(std::make_unique<SlimSerialRTDEImpl>()),m_logger(spdlog::default_logger()) {
+    : pimpl_(std::make_unique<SlimSerialRTDEImpl>(this)),m_logger(spdlog::default_logger()) {
  
     }
 
@@ -855,6 +988,9 @@ WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool au
   }
  
 }
+std::string SlimSerialRTDE::getPortname(){
+  return pimpl_->m_portname;
+} 
 void SlimSerialRTDE::disconnect() {
   pimpl_->close();
   m_logger->info("Serial port {} disconnected", pimpl_->m_portname);
@@ -863,9 +999,11 @@ bool SlimSerialRTDE::isConnected() { return pimpl_->isOpen(); }
 
 void SlimSerialRTDE::setBaudrate(uint32_t baud) {
   pimpl_->setBaudrate(baud);
-  m_logger->info("baudrate changed to {}", baud);
+  m_logger->info("{} baudrate changed to {}", pimpl_->m_portname,baud);
 }
-
+uint32_t SlimSerialRTDE::getBaudrate() {
+  return pimpl_->getBaudrate(); 
+}
 void SlimSerialRTDE::enableLogger(std::shared_ptr<spdlog::logger> ext_logger) {
   pimpl_->enableLogger(ext_logger);
 }
@@ -886,18 +1024,49 @@ std::vector<uint8_t> SlimSerialRTDE::assembleTxFrameWithAddress(
   return pimpl_->assembleTxFrameWithAddress(des, fcode, pData, datasize);
 }
 
-std::size_t SlimSerialRTDE::transmitFrame(const std::vector<uint8_t>& txData) { return pimpl_->transmit(txData); }
-void SlimSerialRTDE::transmitFrameAsync(const std::vector<uint8_t>& txData) { pimpl_->transmitAsync(txData); }
+
+std::size_t SlimSerialRTDE::transmitFrame(const std::vector<uint8_t>& txData) { 
+  if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+    return pimpl_->transmit(txData); 
+  }
+  else{
+    return 0;
+  }
+}
+void SlimSerialRTDE::transmitFrameAsync(const std::vector<uint8_t>& txData) {
+   if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+      pimpl_->transmitAsync(txData);
+    }
+}
 WS_STATUS SlimSerialRTDE::transmitReceiveFrame(std::vector<uint8_t> const& txData, uint32_t timeoutMS) {
-  return pimpl_->transmitReceiveFrame(txData, timeoutMS);
+  if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+    return pimpl_->transmitReceiveFrame(txData, timeoutMS);
+  }
+  else{
+    return WS_QUIT;
+  }
 }
 
 std::size_t SlimSerialRTDE::transmitFrame(uint8_t* pData, uint16_t datasize) {
-  return pimpl_->transmit(pData, datasize);
+  if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+    return pimpl_->transmit(pData, datasize);
+  }
+  else{
+    return 0;
+  }
 }
-void SlimSerialRTDE::transmitFrameAsync(uint8_t* pData, uint16_t datasize) { pimpl_->transmit(pData, datasize); }
+void SlimSerialRTDE::transmitFrameAsync(uint8_t* pData, uint16_t datasize) { 
+  if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+    pimpl_->transmitAsync(pData, datasize);
+  }
+}
 WS_STATUS SlimSerialRTDE::transmitReceiveFrame(uint8_t* pData, uint16_t datasize, uint32_t timeoutMS) {
-  return pimpl_->transmitReceiveFrame(pData, datasize, timeoutMS);
+  if(getProxyMode()==SLIMSERIAL_TXRX_NORMAL){
+    return pimpl_->transmitReceiveFrame(pData, datasize, timeoutMS);
+  }
+  else{
+    return WS_QUIT;
+  } 
 }
 
 uint32_t SlimSerialRTDE::readBuffer(uint8_t* pDes, int nBytes, uint32_t timeoutMS) {
@@ -941,7 +1110,7 @@ void SlimSerialRTDE::toggleFuncodeFilter(bool filterOn) { pimpl_->funcodeFilterO
 void SlimSerialRTDE::setHeader(uint8_t h1, uint8_t h2) {
   pimpl_->default_headers[0] = h1;
   pimpl_->default_headers[1] = h2;
-  m_logger->debug("set frame header to {:c} {:c}", h1, h2);
+  m_logger->debug("{} set frame header to {:c} {:c}",pimpl_->m_portname, h1, h2);
 }
 
 uint8_t SlimSerialRTDE::getHeader(uint8_t index) { return pimpl_->default_headers[index]; }
@@ -982,3 +1151,30 @@ uint64_t SlimSerialRTDE::getTicm_tic_frameComplete() { return pimpl_->m_tic_fram
 uint64_t SlimSerialRTDE::getTicm_tic_frameParserEnd() { return pimpl_->m_tic_frameParserEnd; }
 
 void SlimSerialRTDE::setServer(bool isServer) { pimpl_->m_isServer = isServer; }
+
+
+std::size_t SlimSerialRTDE::transmitDataLL(uint8_t *pdata, uint16_t datasize) { 
+  return pimpl_->transmit(pdata, datasize); 
+}
+std::size_t SlimSerialRTDE::transmitFrameLL(uint8_t des, uint8_t fcode, uint8_t* pData, uint16_t datasize) { 
+  return pimpl_->transmit(assembleTxFrameWithAddress(des, fcode, pData, datasize)); 
+}
+
+SLIMSERIAL_PROXY_MODE  SlimSerialRTDE::getProxyMode() { 
+  return pimpl_->getProxyMode();
+}
+void  SlimSerialRTDE::setProxyMode(SLIMSERIAL_PROXY_MODE mode_) {
+  pimpl_->m_proxy_mode = mode_;
+}
+
+void SlimSerialRTDE::setProxyPort(SlimSerialRTDE * proxy_port_){
+    pimpl_->m_proxy_port = proxy_port_;
+}
+
+SlimSerialRTDE * SlimSerialRTDE::getProxyPort(){
+    return pimpl_->m_proxy_port;
+}
+
+void SlimSerialRTDE::attachProxySerialPortGetter(std::function< SlimSerialRTDE * (uint8_t)> getProxySerialPort_){
+    pimpl_->getProxySerialPortFunc = getProxySerialPort_;
+}
