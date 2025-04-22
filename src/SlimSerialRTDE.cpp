@@ -675,7 +675,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
               expectedFrameBytes  = (uint8_t)(circularBuffer.peekAt(2)) + 5;
             }
             else if(funcodeIn == 0x06){
-              expectedFrameBytes  =  circularBuffer.availableBytes();//special treatment for 0x06
+              expectedFrameBytes  =  8;//special treatment for 0x06
             }
             else if (funcodeIn == 0x10) {
               expectedFrameBytes  =  8;

@@ -3,7 +3,7 @@
 cmake_minimum_required(VERSION 3.11)
 project(SlimSerialRTDE_examples CXX)
  
-add_subdirectory(SlimArm)
+# add_subdirectory(SlimArm)
 add_subdirectory(test_client_server)
   
 ############################ Begin example WISSON_DUMMU_SERVER  EXE *******************
@@ -30,12 +30,12 @@ add_subdirectory(test_client_server)
 ############################ End example WISSON_DUMMU_SERVER  EXE *******************
 
 ############################ Begin example speaker  EXE *******************
-ADD_LIBRARY( speaker
-    speaker.cpp
-)
-TARGET_LINK_LIBRARIES( speaker
-            SlimSerialRTDE
-)
+# ADD_LIBRARY( speaker
+#     speaker.cpp
+# )
+# TARGET_LINK_LIBRARIES( speaker
+#             SlimSerialRTDE
+# )
 
  
 ############################ End example speaker  EXE *******************
