@@ -236,7 +236,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   if (datasize > 0) {
     std::size_t txedsize = transmit(pData, datasize);
     if (txedsize != datasize) {
-      m_logger->warn("[TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}", txedsize, datasize);
+      m_logger->debug("[TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}", txedsize, datasize);
       frameCompleteFlag = true;
       m_tic_frameComplete = getTimeUTC();
       m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -293,7 +293,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   // 	return WS_OK;
   // }
   // else {//timeout occurred
-  // 	m_logger->warn("Timeout to receive a frame");
+  // 	m_logger->debug("Timeout to receive a frame");
   // 	_inFrame.resize(0);
   // 	m_tic_frameComplete = getTimeUTC();
   // 	m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -425,16 +425,16 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                     continue;
                   } else {  // bad crc
 
-                    m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                    m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                         circularBuffer.calculateCRC(expectedFrameBytes - 2),
                         circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                     std::array<uint8_t,256> badframe_buf;
                     circularBuffer.peek(&badframe_buf[0], expectedFrameBytes);
-                    m_logger->warn("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
+                    m_logger->debug("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
 
                     int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                     remainingBytes -= discardN;
-                    m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                    m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                     printRxBuffer();
                     continue;
                   }
@@ -444,37 +444,37 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   break;
                 }
               } else {  // illegal length
-                m_logger->warn("illegal length 0x{:2X}", expectedFrameBytes);
+                m_logger->debug("illegal length 0x{:2X}", expectedFrameBytes);
                 int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                 remainingBytes -= discardN;
-                m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                 printRxBuffer();
 
                 continue;
               }
             } else {
               // illegal funcode
-              m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+              m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
 
               int discardN = circularBuffer.discardUntilNext(default_headers[0]);
               remainingBytes -= discardN;
-              m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+              m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
               printRxBuffer();
               continue;
             }
           } else {  // illegal address
-            m_logger->warn("illegal address 0x{:2X}", addressIn);
+            m_logger->debug("illegal address 0x{:2X}", addressIn);
             int discardN = circularBuffer.discardUntilNext(default_headers[0]);
             remainingBytes -= discardN;
-            m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+            m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
             printRxBuffer();
             continue;
           }
         } else {  // illegal header
-          m_logger->warn("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
+          m_logger->debug("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
           int discardN = circularBuffer.discardUntilNext(default_headers[0]);
           remainingBytes -= discardN;
-          m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+          m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
           printRxBuffer();
           continue;
         }
@@ -523,12 +523,12 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   continue;
                 } else {  // bad crc
 
-                  m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                   remainingBytes -= discardN;
-                  m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                  m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                   printRxBuffer();
 
                   continue;
@@ -540,11 +540,11 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
               }
             } else {  // illegal length
 
-              m_logger->warn("illegal length 0x{:2X}", expectedFrameBytes);
+              m_logger->debug("illegal length 0x{:2X}", expectedFrameBytes);
 
               int discardN = circularBuffer.discardUntilNext(default_headers[0]);
               remainingBytes -= discardN;
-              m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+              m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
               printRxBuffer();
 
               continue;
@@ -552,20 +552,20 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           } else {
             // illegal funcode
 
-            m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_headers[0]);
             remainingBytes -= discardN;
-            m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+            m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
             printRxBuffer();
 
             continue;
           }
         } else {  // illegal header
 
-          m_logger->warn("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
+          m_logger->debug("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
           int discardN = circularBuffer.discardUntilNext(default_headers[0]);
           remainingBytes -= discardN;
-          m_logger->warn("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+          m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
           printRxBuffer();
 
           continue;
@@ -626,12 +626,12 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   break;
                 }
                 else{
-                  m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_address);
                   remainingBytes -= discardN;
-                  m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
                   continue;
                 }
               }
@@ -643,18 +643,18 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           } else {
             // illegal funcode
 
-            m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_address);
             remainingBytes -= discardN;
-            m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+            m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
             continue;
           }
         } else {
           // illegal address
-          m_logger->warn("illegal address 0x{:2X}", addressIn);
+          m_logger->debug("illegal address 0x{:2X}", addressIn);
           int discardN = circularBuffer.discardUntilNext(default_address);
           remainingBytes -= discardN;
-          m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+          m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
           printRxBuffer();
           continue;
         }
@@ -713,12 +713,12 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   break;
                 }
                 else{
-                  m_logger->warn("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_address);
                   remainingBytes -= discardN;
-                  m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
                   continue;
                 }
               }
@@ -730,18 +730,18 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           } else {
             // illegal funcode
 
-            m_logger->warn("illegal funcode 0x{:2X}", funcodeIn);
+            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_address);
             remainingBytes -= discardN;
-            m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+            m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
             continue;
           }
         } else {
           // illegal address
-          m_logger->warn("illegal address 0x{:2X}", addressIn);
+          m_logger->debug("illegal address 0x{:2X}", addressIn);
           int discardN = circularBuffer.discardUntilNext(default_address);
           remainingBytes -= discardN;
-          m_logger->warn("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+          m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
           printRxBuffer();
           continue;
         }
@@ -837,7 +837,7 @@ SlimSerialRTDE& SlimSerialRTDE::operator=(SlimSerialRTDE&& rhs) = default;
 WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool autoConnect) {
   
   if (isConnected()) {
-     m_logger->warn("Serial port {} is already opened, disconnect and reconnect", pimpl_->m_portname);
+     m_logger->debug("Serial port {} is already opened, disconnect and reconnect", pimpl_->m_portname);
      disconnect();
   }  
 	try {
@@ -863,7 +863,7 @@ bool SlimSerialRTDE::isConnected() { return pimpl_->isOpen(); }
 
 void SlimSerialRTDE::setBaudrate(uint32_t baud) {
   pimpl_->setBaudrate(baud);
-  m_logger->info("baudrate changed to {}", baud);
+  m_logger->debug("baudrate changed to {}", baud);
 }
 
 void SlimSerialRTDE::enableLogger(std::shared_ptr<spdlog::logger> ext_logger) {

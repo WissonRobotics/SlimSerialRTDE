@@ -359,7 +359,7 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
         m_totalTxBytes += txedsize;
         m_totalTxFrames++;
         if (datasize != txedsize) {
-            m_logger->warn( "Transmitted only {} out of {} bytes", txedsize, datasize);
+            m_logger->debug( "Transmitted only {} out of {} bytes", txedsize, datasize);
         }
 
         writeLocked = false;

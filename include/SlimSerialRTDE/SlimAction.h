@@ -190,7 +190,7 @@ public:
     }
     else{
       m_logger->trace( "[Act {}] [Command] [OK]",m_actionName);
-      auto command_start_time = TIC();
+      action_start_time = TIC();
       while(true){
         auto nextTick = TIC() + std::chrono::milliseconds(10);
         m_progress.timeCost = TOC(action_start_time);
