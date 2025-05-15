@@ -228,7 +228,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   // aync wait for ack response, spurious wake-up is handled by predate function
   // upon receiving the frameCompleteCV,  the registered framecallback function should have already been excecuted.
   std::unique_lock<std::mutex> lock_(frameCompleteMtx);
-  m_logger->debug("[TransmitReceive] [Start]");
+  SPDLOG_DEBUG("[TransmitReceive] [Start]");
   frameCompleteFlag = false;
 
   m_tic_frameStart = getTimeUTC();
@@ -236,7 +236,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   if (datasize > 0) {
     std::size_t txedsize = transmit(pData, datasize);
     if (txedsize != datasize) {
-      m_logger->debug("[TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}", txedsize, datasize);
+      SPDLOG_DEBUG("[TransmitReceive] [Abort] unmatched transmitted bytes {} out of expected {}", txedsize, datasize);
       frameCompleteFlag = true;
       m_tic_frameComplete = getTimeUTC();
       m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -279,21 +279,21 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::transmitReceiveFrame(
   frameCompleteFlag = true;
 
   if (ret == WS_OK) {
-    m_logger->debug("[TransmitReceive] [Success]");
+    SPDLOG_DEBUG("[TransmitReceive] [Success]");
   } else {
-    m_logger->debug("[TransmitReceive] [Timeout]");
+    SPDLOG_DEBUG("[TransmitReceive] [Timeout]");
   }
 
   return ret;
 
   // if (frameCompleteCV.wait_until(lock_, timeoutPoint, [&]() {return frameCompleteFlag; })) {
-  // 	m_logger->trace("Got a frame");
+  // 	SPDLOG_TRACE("Got a frame");
   // 	m_tic_frameComplete = getTimeUTC();
   // 	m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
   // 	return WS_OK;
   // }
   // else {//timeout occurred
-  // 	m_logger->debug("Timeout to receive a frame");
+  // 	SPDLOG_DEBUG("Timeout to receive a frame");
   // 	_inFrame.resize(0);
   // 	m_tic_frameComplete = getTimeUTC();
   // 	m_lastTxRxTime = getTimeUTC() - m_tic_frameStart;
@@ -313,11 +313,11 @@ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::readBuffer(uint8_t* pDes, uint32_t 
             lock_, timeoutPoint, [&]() { return circularBuffer.availableBytes() >= remainingBytes; })) {
       readN += circularBuffer.out(pDes, remainingBytes);
 
-      m_logger->debug("Reading buffer successfully {} nBytes", readN);
+      SPDLOG_DEBUG("Reading buffer successfully {} nBytes", readN);
     } else {
       readN += circularBuffer.out(pDes, remainingBytes);
 
-      m_logger->debug("Reading buffer Failed, requesting {} but only got {} nBytes ", nBytes, readN);
+      SPDLOG_DEBUG("Reading buffer Failed, requesting {} but only got {} nBytes ", nBytes, readN);
     }
   }
 
@@ -339,7 +339,7 @@ uint32_t SlimSerialRTDE::SlimSerialRTDEImpl::clearRxBuffer() {
 void SlimSerialRTDE::SlimSerialRTDEImpl::printRxBuffer() {
   std::array<uint8_t,4096> buf;
   uint32_t readlen = circularBuffer.peek(&buf[0], circularBuffer.availableBytes()); ;
-  m_logger->trace("Rxbuffer has {} bytes: {}",readlen,spdlog::to_hex(std::begin(buf), std::begin(buf) + readlen));
+  SPDLOG_TRACE("Rxbuffer has {} bytes: {}",readlen,spdlog::to_hex(std::begin(buf), std::begin(buf) + readlen));
 }
 
 // this function will decoding all the available bytes in the rx buffer, calling the frame callback in sequence, until
@@ -352,7 +352,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
   while (true) {
     if (remainingBytes == 0) return WS_FAIL;
 
-    m_logger->debug("[frame parser] [Start] Rx has {} bytes", remainingBytes);
+    SPDLOG_DEBUG("[frame parser] [Start] Rx has {} bytes", remainingBytes);
     printRxBuffer();
 
     // type 0 is treating any data to be a valid frame. so simply read out all the data and call framecallback
@@ -363,8 +363,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
       remainingBytes -= _inFrameBytes;
 
       parserResult = WS_OK;
-      m_logger->debug("[frame parser] [Success] decoded a frame type 0 with {} bytes", _inFrameBytes);
-      m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+      SPDLOG_DEBUG("[frame parser] [Success] decoded a frame type 0 with {} bytes", _inFrameBytes);
+      SPDLOG_TRACE("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
    
       // dealing frame
       if (frameCallback) {
@@ -407,8 +407,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                     circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
                     remainingBytes -= _inFrameBytes;
                     parserResult = WS_OK;
-                    m_logger->debug("[frame parser] [Success] Decoded frame type 1 with {} bytes", _inFrameBytes);
-                    //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                    SPDLOG_DEBUG("[frame parser] [Success] Decoded frame type 1 with {} bytes", _inFrameBytes);
+                    //SPDLOG_TRACE("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
                     m_totalRxFrames++;
 
                     // dealing frame
@@ -425,56 +425,56 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                     continue;
                   } else {  // bad crc
 
-                    m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                    SPDLOG_DEBUG("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                         circularBuffer.calculateCRC(expectedFrameBytes - 2),
                         circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                     std::array<uint8_t,256> badframe_buf;
                     circularBuffer.peek(&badframe_buf[0], expectedFrameBytes);
-                    m_logger->debug("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
+                    SPDLOG_DEBUG("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
 
                     int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                     remainingBytes -= discardN;
-                    m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                    SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                     printRxBuffer();
                     continue;
                   }
                 } else {  // not rx finished
-                  m_logger->debug("incomplete frame, continue receving");
+                  SPDLOG_DEBUG("incomplete frame, continue receving");
                   waitingForMore = true;
                   break;
                 }
               } else {  // illegal length
-                m_logger->debug("illegal length 0x{:2X}", expectedFrameBytes);
+                SPDLOG_DEBUG("illegal length 0x{:2X}", expectedFrameBytes);
                 int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                 remainingBytes -= discardN;
-                m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                 printRxBuffer();
 
                 continue;
               }
             } else {
               // illegal funcode
-              m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
+              SPDLOG_DEBUG("illegal funcode 0x{:2X}", funcodeIn);
 
               int discardN = circularBuffer.discardUntilNext(default_headers[0]);
               remainingBytes -= discardN;
-              m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+              SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
               printRxBuffer();
               continue;
             }
           } else {  // illegal address
-            m_logger->debug("illegal address 0x{:2X}", addressIn);
+            SPDLOG_DEBUG("illegal address 0x{:2X}", addressIn);
             int discardN = circularBuffer.discardUntilNext(default_headers[0]);
             remainingBytes -= discardN;
-            m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+            SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
             printRxBuffer();
             continue;
           }
         } else {  // illegal header
-          m_logger->debug("{} illegal header 0x{:2X} 0x{:2X}",m_portname, headersIn[0], headersIn[1]);
+          SPDLOG_DEBUG("{} illegal header 0x{:2X} 0x{:2X}",m_portname, headersIn[0], headersIn[1]);
           int discardN = circularBuffer.discardUntilNext(default_headers[0]);
           remainingBytes -= discardN;
-          m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+          SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
           printRxBuffer();
           continue;
         }
@@ -505,8 +505,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
                   remainingBytes -= _inFrameBytes;
                   parserResult = WS_OK;
-                  m_logger->debug("[frame parser] [Success] Decoded frame type 2 with {} bytes", _inFrameBytes);
-                  //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                  SPDLOG_DEBUG("[frame parser] [Success] Decoded frame type 2 with {} bytes", _inFrameBytes);
+                  //SPDLOG_TRACE("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
                   m_totalRxFrames++;
 
                   // dealing frame
@@ -523,28 +523,28 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                   continue;
                 } else {  // bad crc
 
-                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  SPDLOG_DEBUG("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_headers[0]);
                   remainingBytes -= discardN;
-                  m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+                  SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
                   printRxBuffer();
 
                   continue;
                 }
               } else {  // not rx finished
-                m_logger->debug("incomplete frame, continue receving");
+                SPDLOG_DEBUG("incomplete frame, continue receving");
                 waitingForMore = true;
                 break;
               }
             } else {  // illegal length
 
-              m_logger->debug("illegal length 0x{:2X}", expectedFrameBytes);
+              SPDLOG_DEBUG("illegal length 0x{:2X}", expectedFrameBytes);
 
               int discardN = circularBuffer.discardUntilNext(default_headers[0]);
               remainingBytes -= discardN;
-              m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+              SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
               printRxBuffer();
 
               continue;
@@ -552,20 +552,20 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
           } else {
             // illegal funcode
 
-            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
+            SPDLOG_DEBUG("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_headers[0]);
             remainingBytes -= discardN;
-            m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+            SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
             printRxBuffer();
 
             continue;
           }
         } else {  // illegal header
 
-          m_logger->debug("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
+          SPDLOG_DEBUG("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
           int discardN = circularBuffer.discardUntilNext(default_headers[0]);
           remainingBytes -= discardN;
-          m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
+          SPDLOG_DEBUG("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
           printRxBuffer();
 
           continue;
@@ -603,8 +603,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                 circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
                 remainingBytes -= _inFrameBytes;
                 parserResult = WS_OK;
-                m_logger->debug("[frame parser] [Success] Decoded frame type 3 MODBUS with {} bytes", _inFrameBytes);
-                //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                SPDLOG_DEBUG("[frame parser] [Success] Decoded frame type 3 MODBUS with {} bytes", _inFrameBytes);
+                //SPDLOG_TRACE("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
                 m_totalRxFrames++;
 
                 // dealing frame
@@ -621,40 +621,40 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                 continue;
               } else {  // bad crc
                 if(funcodeIn == 0x06 && circularBuffer.availableBytes()<256){//special treatment for 0x06
-                  m_logger->debug("writing maybe incomplete, continue receving");
+                  SPDLOG_DEBUG("writing maybe incomplete, continue receving");
                   waitingForMore = true;
                   break;
                 }
                 else{
-                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  SPDLOG_DEBUG("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_address);
                   remainingBytes -= discardN;
-                  m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
                   continue;
                 }
               }
             } else {  // not rx finished
-              m_logger->debug("incomplete frame, continue receving");
+              SPDLOG_DEBUG("incomplete frame, continue receving");
               waitingForMore = true;
               break;
             }
           } else {
             // illegal funcode
 
-            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
+            SPDLOG_DEBUG("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_address);
             remainingBytes -= discardN;
-            m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+            SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
             continue;
           }
         } else {
           // illegal address
-          m_logger->debug("illegal address 0x{:2X}", addressIn);
+          SPDLOG_DEBUG("illegal address 0x{:2X}", addressIn);
           int discardN = circularBuffer.discardUntilNext(default_address);
           remainingBytes -= discardN;
-          m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+          SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
           printRxBuffer();
           continue;
         }
@@ -690,8 +690,8 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                 circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
                 remainingBytes -= _inFrameBytes;
                 parserResult = WS_OK;
-                m_logger->debug("[frame parser] [Success] Decoded frame type 3 MODBUS with {} bytes", _inFrameBytes);
-                //m_logger->trace("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
+                SPDLOG_DEBUG("[frame parser] [Success] Decoded frame type 3 MODBUS with {} bytes", _inFrameBytes);
+                //SPDLOG_TRACE("frame content: {}", spdlog::to_hex(std::begin(_inFrame), std::begin(_inFrame) + _inFrameBytes));
                 m_totalRxFrames++;
 
                 // dealing frame
@@ -708,40 +708,40 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                 continue;
               } else {  // bad crc
                 if(funcodeIn == 0x06 && circularBuffer.availableBytes()<256){//special treatment for 0x06
-                  m_logger->debug("writing reply maybe incomplete, continue receving");
+                  SPDLOG_DEBUG("writing reply maybe incomplete, continue receving");
                   waitingForMore = true;
                   break;
                 }
                 else{
-                  m_logger->debug("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
+                  SPDLOG_DEBUG("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                       circularBuffer.calculateCRC(expectedFrameBytes - 2),
                       circularBuffer.peekAt_U16(expectedFrameBytes - 2));
                   int discardN = circularBuffer.discardUntilNext(default_address);
                   remainingBytes -= discardN;
-                  m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+                  SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
                   continue;
                 }
               }
             } else {  // not rx finished
-              m_logger->debug("incomplete frame, continue receving");
+              SPDLOG_DEBUG("incomplete frame, continue receving");
               waitingForMore = true;
               break;
             }
           } else {
             // illegal funcode
 
-            m_logger->debug("illegal funcode 0x{:2X}", funcodeIn);
+            SPDLOG_DEBUG("illegal funcode 0x{:2X}", funcodeIn);
             int discardN = circularBuffer.discardUntilNext(default_address);
             remainingBytes -= discardN;
-            m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+            SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
             continue;
           }
         } else {
           // illegal address
-          m_logger->debug("illegal address 0x{:2X}", addressIn);
+          SPDLOG_DEBUG("illegal address 0x{:2X}", addressIn);
           int discardN = circularBuffer.discardUntilNext(default_address);
           remainingBytes -= discardN;
-          m_logger->debug("Discarding {} bytes to find 0x{:X}", discardN, default_address);
+          SPDLOG_DEBUG("Discarding {} bytes to find 0x{:X}", discardN, default_address);
           printRxBuffer();
           continue;
         }
@@ -771,7 +771,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
   }
 
   m_tic_frameParserEnd = getTimeUTC();
-  m_logger->debug("[frame parser] [Finished] remaining {} bytes", circularBuffer.availableBytes());
+  SPDLOG_DEBUG("[frame parser] [Finished] remaining {} bytes", circularBuffer.availableBytes());
   return parserResult;
 }
 
@@ -837,7 +837,7 @@ SlimSerialRTDE& SlimSerialRTDE::operator=(SlimSerialRTDE&& rhs) = default;
 WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool autoConnect) {
   
   if (isConnected()) {
-     m_logger->debug("Serial port {} is already opened, disconnect and reconnect", pimpl_->m_portname);
+     SPDLOG_DEBUG("Serial port {} is already opened, disconnect and reconnect", pimpl_->m_portname);
      disconnect();
   }  
 	try {
@@ -845,7 +845,7 @@ WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool au
 	if (!err) {
 	return WS_OK;
 	} else {
-	m_logger->error("Failed to open {}", dname);
+	SPDLOG_ERROR("Failed to open {}", dname);
 	return WS_ERROR;
 	}
   }
@@ -857,13 +857,13 @@ WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool au
 }
 void SlimSerialRTDE::disconnect() {
   pimpl_->close();
-  m_logger->info("Serial port {} disconnected", pimpl_->m_portname);
+  SPDLOG_INFO("Serial port {} disconnected", pimpl_->m_portname);
 }
 bool SlimSerialRTDE::isConnected() { return pimpl_->isOpen(); }
 
 void SlimSerialRTDE::setBaudrate(uint32_t baud) {
   pimpl_->setBaudrate(baud);
-  m_logger->debug("baudrate changed to {}", baud);
+  SPDLOG_DEBUG("baudrate changed to {}", baud);
 }
 
 void SlimSerialRTDE::enableLogger(std::shared_ptr<spdlog::logger> ext_logger) {
@@ -941,7 +941,7 @@ void SlimSerialRTDE::toggleFuncodeFilter(bool filterOn) { pimpl_->funcodeFilterO
 void SlimSerialRTDE::setHeader(uint8_t h1, uint8_t h2) {
   pimpl_->default_headers[0] = h1;
   pimpl_->default_headers[1] = h2;
-  m_logger->debug("set frame header to {:c} {:c}", h1, h2);
+  SPDLOG_DEBUG("set frame header to {:c} {:c}", h1, h2);
 }
 
 uint8_t SlimSerialRTDE::getHeader(uint8_t index) { return pimpl_->default_headers[index]; }
