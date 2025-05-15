@@ -43,10 +43,11 @@ struct ArmActionProgress{
 
 class ArmAction{
 public:
-  ArmAction(bool preemptible=true)
+  ArmAction(std::string _name_prefix = "",bool preemptible=true)
   :m_preemptible(preemptible),
   m_timeout(60),
-  m_command_repeat_max(20){
+  m_command_repeat_max(20),
+  m_actionName_prefix(_name_prefix){
     reset();
   }
 
