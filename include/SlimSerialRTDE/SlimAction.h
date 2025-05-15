@@ -91,13 +91,13 @@ public:
         }  
     
         if (repeat_max != 0 && repeat_times >= repeat_max) {
-        m_logger->error("[Command_repeat Timeout] {} exceed {} times ",std::source_location::current().function_name(),repeat_max);
+        SPDLOG_ERROR("[Command_repeat Timeout] {} exceed {} times ",std::source_location::current().function_name(),repeat_max);
         return WS_TIMEOUT;
         }
 
         if (timeout_max != 0) {
         if (TOC(func_start_time) > timeout_max) {
-            m_logger->error("[Command_repeat Timeout] {} timeout for {} ms",std::source_location::current().function_name(),timeout_max);
+            SPDLOG_ERROR("[Command_repeat Timeout] {} timeout for {} ms",std::source_location::current().function_name(),timeout_max);
             return WS_TIMEOUT;
         }
         }
@@ -113,34 +113,32 @@ public:
     if(m_preemptible){
       lock_.unlock();
     }
-    m_logger->info( "[Act {}] [Init]",m_actionName);
+    SPDLOG_INFO( "[Act {}] [Init]",m_actionName);
 
     if(!isStopped()){
 
       stopAction();
-      m_logger->warn( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName);
+      SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName);
       
       int timeoutSeconds = 5;
       while(spinWait([&](){return isStopped();},1,200)!=WS_OK){
 
        // stopAction();
-        m_logger->warn( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName);
+        SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName);
         if(timeoutSeconds--<=0){
           break;
         }
       }
 
       if(isStopped()){
-        m_logger->debug( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
+        SPDLOG_DEBUG( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
       }
       else{
-        m_logger->warn( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
+        SPDLOG_WARN( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
       }
     }
 
-    reset();
-
-    m_actionName = actionName; 
+    reset(); 
   
     m_idleFlag = false;
 
@@ -156,7 +154,7 @@ public:
  
     //fast fail  
     if(!m_actionEnabled){
-      m_logger->error( "[Act {}] [Abort] Action is disabled",m_actionName);
+      SPDLOG_ERROR( "[Act {}] [Abort] Action is disabled",m_actionName);
       m_idleFlag = true;
       m_actionResult = WS_STATUS::WS_FAIL;
       if(m_actionCompleteCallback){
@@ -168,7 +166,7 @@ public:
 
     //fast fail for start pre condition
     if (!m_actionStartCondition(m_progress)){
-      m_logger->error( "[Act {}] [Abort] {}",m_actionName,m_progress.message);
+      SPDLOG_ERROR( "[Act {}] [Abort] {}",m_actionName,m_progress.message);
       m_idleFlag = true;
       m_actionResult = WS_STATUS::WS_ERROR;
       if(m_actionCompleteCallback){
@@ -177,7 +175,7 @@ public:
       return m_actionResult;
     }
     else{
-      m_logger->info( "[Act {}] [Start] {}",m_actionName,m_progress.message);
+      SPDLOG_INFO( "[Act {}] [Start] {}",m_actionName,m_progress.message);
     }
 
 
@@ -187,11 +185,11 @@ public:
  
     if (func_ret != WS_STATUS::WS_OK) {
       m_progress.timeCost = TOC(action_start_time);
-      m_logger->error( "[Act {}] [Failed] [{:1f} s] commanding timeout over {} times ",m_actionName,m_progress.timeCost,m_command_repeat_max);
+      SPDLOG_ERROR( "[Act {}] [Failed] [{:1f} s] commanding timeout over {} times ",m_actionName,m_progress.timeCost,m_command_repeat_max);
       m_actionResult = WS_STATUS::WS_FAIL;
     }
     else{
-      m_logger->trace( "[Act {}] [Command] [OK]",m_actionName);
+      SPDLOG_TRACE( "[Act {}] [Command] [OK]",m_actionName);
       action_start_time = TIC();
       while(true){
         auto nextTick = TIC() + std::chrono::milliseconds(10);
@@ -200,27 +198,27 @@ public:
         // 
         // if(TOC(command_start_time) >= 1.0) {
         //   command_repeat(WS_STATUS::WS_OK, 0, 2, std::forward<Func>(actionFunc), std::forward<Args>(actionArgs)...);
-        //   m_logger->info( "[Act {}] [Command repeat] [{:1f} s]", m_actionName, m_progress.timeCost);
+        //   SPDLOG_INFO( "[Act {}] [Command repeat] [{:1f} s]", m_actionName, m_progress.timeCost);
         //   command_start_time = TIC();
         // }
         
         //timeout
         if (m_progress.timeCost > m_timeout) {
-          m_logger->error( "[Act {}] [Timeout] [{:1f} s]",m_actionName,m_progress.timeCost);
+          SPDLOG_ERROR( "[Act {}] [Timeout] [{:1f} s]",m_actionName,m_progress.timeCost);
           m_actionResult = WS_STATUS::WS_TIMEOUT;
           break;
         }
  
         //external stop condition
         if (m_actionStopCondition(m_progress)) {
-          m_logger->warn( "[Act {}] [Stopped] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          SPDLOG_WARN( "[Act {}] [Stopped] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
           m_actionResult = WS_STATUS::WS_ABORT;
           break;
         }
 
         //internal stop request
         if (m_stopRequest || (!m_actionEnabled)) {
-          m_logger->warn( "[Act {}] [Stopped] [{:1f} s] Stop command is received",m_actionName,m_progress.timeCost);
+          SPDLOG_WARN( "[Act {}] [Stopped] [{:1f} s] Stop command is received",m_actionName,m_progress.timeCost);
           m_stopRequest=false;
           m_actionResult = WS_STATUS::WS_ABORT;
           break;  
@@ -238,15 +236,15 @@ public:
         }
 
         if(m_progress.conditionCheckNumber % m_progress.messageFrequencyDivide == 0 ){
-          m_logger->info( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
-          //m_logger->info( "[Act {}] [Progress {}] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
+          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          //SPDLOG_INFO( "[Act {}] [Progress {}] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
         }
 
         //complete condition
         if (m_actionCompleteCondition(m_progress)){
-          m_logger->info( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
-          //m_logger->info( "[Act {}] [Progress {}%%] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
-          m_logger->info( "[Act {}] [Successful]",m_actionName);
+          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          //SPDLOG_INFO( "[Act {}] [Progress {}%%] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
+          SPDLOG_INFO( "[Act {}] [Successful]",m_actionName);
           m_actionResult = WS_STATUS::WS_OK;
           break;
         }
