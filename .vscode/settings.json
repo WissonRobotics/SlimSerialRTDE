@@ -92,6 +92,11 @@
         "stacktrace": "cpp",
         "*.ipp": "cpp",
         "hash_map": "cpp",
-        "hash_set": "cpp"
+        "hash_set": "cpp",
+        "globjects": "cpp",
+        "graphicscontext": "cpp",
+        "object": "cpp",
+        "operationthread": "cpp",
+        "stats": "cpp"
     }
 }

@@ -50,8 +50,8 @@ public:
     reset();
   }
 
-  void setActionName(std::string _name){
-    m_actionName = _name;
+  void setActionNamePrefix(std::string _name_prefix = ""){
+    m_actionName_prefix = _name_prefix;
   }
  
   void setActionCompleteCallback(std::function<void(WS_STATUS &actionResutl)> &&actionCompleteCallback){
@@ -108,31 +108,32 @@ public:
   template <typename Func, typename... Args>
   WS_STATUS act(std::string actionName,std::function<bool(ArmActionProgress &progress)> &&actionStartCondition,std::function<bool(ArmActionProgress &progress)> &&actionStopCondition,std::function<bool(ArmActionProgress &progress)> &&actionProgressIndication, std::function<bool(ArmActionProgress &progress)> &&actionCompleteCondition,double timeout_max, Func&& actionFunc, Args&&... actionArgs){
     std::unique_lock lock_(m_actionMtx);
+    m_actionName = m_actionName_prefix + actionName;
     if(m_preemptible){
       lock_.unlock();
     }
-    m_logger->info( "[Act {}] [Init]",actionName);
+    m_logger->info( "[Act {}] [Init]",m_actionName);
 
     if(!isStopped()){
 
       stopAction();
-      m_logger->warn( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",actionName,m_actionName);
+      m_logger->warn( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName);
       
       int timeoutSeconds = 5;
       while(spinWait([&](){return isStopped();},1,200)!=WS_OK){
 
        // stopAction();
-        m_logger->warn( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",actionName,m_actionName);
+        m_logger->warn( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName);
         if(timeoutSeconds--<=0){
           break;
         }
       }
 
       if(isStopped()){
-        m_logger->debug( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",actionName,m_actionName);
+        m_logger->debug( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
       }
       else{
-        m_logger->warn( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",actionName,m_actionName);
+        m_logger->warn( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
       }
     }
 
@@ -334,7 +335,8 @@ private:
   bool m_preemptible = true;
   double m_timeout;
   int m_command_repeat_max;  
-  std::string m_actionName;
+  std::string m_actionName="";
+  std::string m_actionName_prefix="";
   // std::function<std::invoke_result_t<Func, Args...>> m_function;
   // std::tuple<Args...> m_args;
   std::function<bool(ArmActionProgress &progress)> m_actionStartCondition;

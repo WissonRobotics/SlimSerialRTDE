@@ -471,7 +471,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
             continue;
           }
         } else {  // illegal header
-          m_logger->debug("illegal header 0x{:2X} 0x{:2X}", headersIn[0], headersIn[1]);
+          m_logger->debug("{} illegal header 0x{:2X} 0x{:2X}",m_portname, headersIn[0], headersIn[1]);
           int discardN = circularBuffer.discardUntilNext(default_headers[0]);
           remainingBytes -= discardN;
           m_logger->debug("Discarding {} bytes to find 0x{:2X}", discardN, default_headers[0]);
