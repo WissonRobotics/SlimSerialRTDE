@@ -43,7 +43,7 @@ struct ArmActionProgress{
 
 class ArmAction{
 public:
-  ArmAction(bool preemptible=true,std::string _name_prefix = "")
+  ArmAction(std::string _name_prefix = "",bool preemptible=true)
   :m_preemptible(preemptible),
   m_timeout(60),
   m_command_repeat_max(20),
