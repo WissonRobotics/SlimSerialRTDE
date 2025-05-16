@@ -109,6 +109,7 @@ public:
   template <typename Func, typename... Args>
   WS_STATUS act(std::string actionName,std::function<bool(ArmActionProgress &progress)> &&actionStartCondition,std::function<bool(ArmActionProgress &progress)> &&actionStopCondition,std::function<bool(ArmActionProgress &progress)> &&actionProgressIndication, std::function<bool(ArmActionProgress &progress)> &&actionCompleteCondition,double timeout_max, Func&& actionFunc, Args&&... actionArgs){
     std::unique_lock lock_(m_actionMtx);
+    std::string m_actionName_last = m_actionName;
     m_actionName = m_actionName_prefix + actionName;
     if(m_preemptible){
       lock_.unlock();
@@ -118,23 +119,23 @@ public:
     if(!isStopped()){
 
       stopAction();
-      SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName);
+      SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName_last);
       
       int timeoutSeconds = 5;
       while(spinWait([&](){return isStopped();},1,200)!=WS_OK){
 
        // stopAction();
-        SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName);
+        SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName_last);
         if(timeoutSeconds--<=0){
           break;
         }
       }
 
       if(isStopped()){
-        SPDLOG_DEBUG( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
+        SPDLOG_DEBUG( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName_last);
       }
       else{
-        SPDLOG_WARN( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName);
+        SPDLOG_WARN( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName_last);
       }
     }
 
