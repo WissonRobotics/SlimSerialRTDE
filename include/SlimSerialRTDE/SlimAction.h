@@ -225,6 +225,17 @@ public:
           break;  
         }
 
+
+
+        //complete condition
+        if (m_actionCompleteCondition(m_progress)){
+          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          //SPDLOG_INFO( "[Act {}] [Progress {}%%] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
+          SPDLOG_INFO( "[Act {}] [Successful]",m_actionName);
+          m_actionResult = WS_STATUS::WS_OK;
+          break;
+        }
+
         //progress indication
         if(m_actionProgressIndication(m_progress)){
           if(m_progress.conditionCheckNumber==0){
@@ -240,16 +251,6 @@ public:
           SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
           //SPDLOG_INFO( "[Act {}] [Progress {}] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
         }
-
-        //complete condition
-        if (m_actionCompleteCondition(m_progress)){
-          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
-          //SPDLOG_INFO( "[Act {}] [Progress {}%%] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
-          SPDLOG_INFO( "[Act {}] [Successful]",m_actionName);
-          m_actionResult = WS_STATUS::WS_OK;
-          break;
-        }
-
         
 
         m_progress.conditionCheckNumber++;
