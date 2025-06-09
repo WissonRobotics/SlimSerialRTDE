@@ -841,7 +841,7 @@ WS_STATUS SlimSerialRTDE::connect(std::string dname, unsigned int baud_, bool au
      disconnect();
   }  
 	try {
-	boost::system::error_code err = pimpl_->open(dname, baud_, autoConnect);
+  std::error_code err = pimpl_->open(dname, baud_, autoConnect);
 	if (!err) {
 	return WS_OK;
 	} else {

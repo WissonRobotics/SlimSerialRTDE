@@ -11,9 +11,7 @@
 
 #if defined(__linux__)
 # include <linux/serial.h>
-#endif
-using namespace std;
-using namespace boost;
+#endif 
 
 template<typename T, int Width>
 struct fixed_width_t
@@ -43,7 +41,7 @@ auto ByteStreamToHexString(uint8_t *pdata,uint32_t databytes)
     return result.str();
 }
 
-AsyncSerial::AsyncSerial():m_logger(spdlog::default_logger()), circularBuffer(cbBuf, DEFAULT_CIRCULAR_BUF_SIZE),  io_context(), serial_port(io_context),serial_work(io_context),single_buf{}, ioContextThread(nullptr) {
+AsyncSerial::AsyncSerial():m_logger(spdlog::default_logger()), circularBuffer(cbBuf, DEFAULT_CIRCULAR_BUF_SIZE),  io_context(), serial_port(io_context),single_buf{}, ioContextThread(nullptr) {
         
 };
 
@@ -52,9 +50,9 @@ AsyncSerial::~AsyncSerial() {
     close();
 }
 
-boost::system::error_code AsyncSerial::open(std::string dev_node, unsigned int baud, bool autoConnect)
+std::error_code AsyncSerial::open(std::string dev_node, unsigned int baud, bool autoConnect)
 {
-    boost::system::error_code e = doOpen(dev_node, baud);
+    std::error_code e = doOpen(dev_node, baud);
     if (isOpen()) {
         SPDLOG_INFO( "Serial {} is opened.",dev_node);
  
@@ -117,9 +115,9 @@ void AsyncSerial::stopIOContextThread(){
 }
 
 
-boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, flowControlType flowControl, unsigned int characterSize, parityType parity, stopBitsType stopBits)
+std::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, asio::serial_port_base::flow_control::type flowControl, unsigned int characterSize, asio::serial_port_base::parity::type parity, asio::serial_port_base::stop_bits::type  stopBits)
 {
-    boost::system::error_code _errorCode;
+    std::error_code _errorCode;
 
     stopIOContextThread();
 
@@ -140,11 +138,11 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
     }
         
 
-    serial_port.set_option(boost::asio::serial_port_base::baud_rate(m_baudrate));
-    serial_port.set_option(boost::asio::serial_port_base::flow_control(flowControl));
-    serial_port.set_option(boost::asio::serial_port_base::character_size(characterSize));
-    serial_port.set_option(boost::asio::serial_port_base::parity(parity));
-    serial_port.set_option(boost::asio::serial_port_base::stop_bits(stopBits));
+    serial_port.set_option(asio::serial_port_base::baud_rate(m_baudrate));
+    serial_port.set_option(asio::serial_port_base::flow_control(flowControl));
+    serial_port.set_option(asio::serial_port_base::character_size(characterSize));
+    serial_port.set_option(asio::serial_port_base::parity(parity));
+    serial_port.set_option(asio::serial_port_base::stop_bits(stopBits));
 
 #if defined(__linux__)
     auto native = serial_port.native_handle();
@@ -168,8 +166,8 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
     );
 
     serial_port.async_read_some(
-        boost::asio::buffer(single_buf),
-        [this](const boost::system::error_code& error, std::size_t bytes_transferred) {
+        asio::buffer(single_buf),
+        [this](const std::error_code& error, std::size_t bytes_transferred) {
             asyncReadHandler(error, bytes_transferred);
         });
 
@@ -177,7 +175,7 @@ boost::system::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int
 }
 
 void AsyncSerial::setBaudrate(uint32_t baud) {
-    serial_port.set_option(boost::asio::serial_port_base::baud_rate(baud));
+    serial_port.set_option(asio::serial_port_base::baud_rate(baud));
 }
 
 void AsyncSerial::setAutoConnectPeriod(int autoReconnectTimeMs) {
@@ -252,7 +250,7 @@ void AsyncSerial::triggerReconnect() {
     }
 }
 
-void AsyncSerial::asyncReadHandler(const boost::system::error_code& error, std::size_t bytes_transferred)
+void AsyncSerial::asyncReadHandler(const std::error_code& error, std::size_t bytes_transferred)
 {
     if (error) {
         if(!m_closing_state){
@@ -266,8 +264,8 @@ void AsyncSerial::asyncReadHandler(const boost::system::error_code& error, std::
     circularBuffer.in(&single_buf[0], bytes_transferred);
 
     serial_port.async_read_some(
-        boost::asio::buffer(single_buf),
-        [this](const boost::system::error_code& error, std::size_t bytes_transferred) {
+        asio::buffer(single_buf),
+        [this](const std::error_code& error, std::size_t bytes_transferred) {
             asyncReadHandler(error, bytes_transferred);
         });
 
@@ -277,7 +275,7 @@ void AsyncSerial::asyncReadHandler(const boost::system::error_code& error, std::
         rxDataCallback();
 } 
 
-void AsyncSerial::asyncWriteHandler(const boost::system::error_code& error, std::size_t bytes_transferred)
+void AsyncSerial::asyncWriteHandler(const std::error_code& error, std::size_t bytes_transferred)
 {
 
     if (error) {
@@ -355,7 +353,7 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
             writeCv.notify_one();
             return 0;
         }
-        auto txedsize =  boost::asio::write(serial_port, boost::asio::buffer((uint8_t *)(&m_txBuffer[0]),datasize));
+        auto txedsize =  asio::write(serial_port, asio::buffer((uint8_t *)(&m_txBuffer[0]),datasize));
         m_totalTxBytes += txedsize;
         m_totalTxFrames++;
         if (datasize != txedsize) {
@@ -404,10 +402,10 @@ void AsyncSerial::transmitAsync(uint8_t *pData,uint16_t datasize)
             writeLocked = false;
             return ;
         }
-        boost::asio::async_write(
+        asio::async_write(
             serial_port,
-            boost::asio::buffer((uint8_t *)(&m_txBuffer[0]), datasize),
-            [this](const boost::system::error_code& error, std::size_t bytes_transferred) {
+            asio::buffer((uint8_t *)(&m_txBuffer[0]), datasize),
+            [this](const std::error_code& error, std::size_t bytes_transferred) {
                 asyncWriteHandler(error, bytes_transferred);
             });
     }

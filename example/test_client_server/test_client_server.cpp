@@ -238,14 +238,14 @@ std::array<int,8> testCommunications(int testTimeMs=10000) {
 	SlimSerialClientTest client;
 
 	//create virtual ports
-	// int returnCode = system("socat -d -d pty,rawer,echo=0,link=/tmp/ttyV0 pty,rawer,echo=0,link=/tmp/ttyV1 &");
-	// std::this_thread::sleep_for(std::chrono::milliseconds(2000));
-	// if (returnCode != 0) {
-	// 	spdlog::error("[Monos Arm Simulator] [Failed] to create virtual ports");
-	// }
-	// else{
-	// 	spdlog::info("[Monos Arm Simulator] [Success] to create virtual port /tmp/ttyV0 and /tmp/ttyV1");
-	// }
+	int returnCode = system("socat -d -d pty,rawer,echo=0,link=/tmp/ttyV0 pty,rawer,echo=0,link=/tmp/ttyV1 &");
+	std::this_thread::sleep_for(std::chrono::milliseconds(2000));
+	if (returnCode != 0) {
+		spdlog::error("[Monos Arm Simulator] [Failed] to create virtual ports");
+	}
+	else{
+		spdlog::info("[Monos Arm Simulator] [Success] to create virtual port /tmp/ttyV0 and /tmp/ttyV1");
+	}
  
 
 	//server connect to virtual ports

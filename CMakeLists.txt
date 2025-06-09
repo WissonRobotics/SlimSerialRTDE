@@ -77,15 +77,7 @@ if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
 
-
-
-# FIND_PACKAGE(Boost COMPONENTS system)
-if(NOT Boost_FOUND)
-    message("Boost not found. Using extern/boost.")
-    include_directories(
-    ${CMAKE_CURRENT_LIST_DIR}/extern/boost
-)
-endif()
+ 
  
 find_package(Threads REQUIRED)
 
@@ -108,18 +100,14 @@ target_include_directories(SlimSerialRTDE ${SlimSerialRTDE_INCLUDES_LEVEL} PUBLI
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
 "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
-if(NOT Boost_FOUND)
-    target_link_libraries(SlimSerialRTDE PUBLIC 
-    Threads::Threads
-    spdlog::spdlog
-    )
-else()
-    target_link_libraries(SlimSerialRTDE PUBLIC 
-    Boost::system
-    Threads::Threads
-    spdlog::spdlog
-    )
-endif()
+target_include_directories(SlimSerialRTDE  PUBLIC 
+"$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/SlimSerialRTDE/asio>")
+
+target_link_libraries(SlimSerialRTDE PUBLIC 
+Threads::Threads
+spdlog::spdlog
+)
+
 
 # if(${UNIX})
 # add_compile_options(-fPIC)
