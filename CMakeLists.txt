@@ -47,8 +47,6 @@ include(InstallRequiredSystemLibraries)
 endif()
 include(GNUInstallDirs)
 
-
-
  
 ################## build options #############################
 if(NOT DEFINED SlimSerialRTDE_MASTER_PROJECT)
@@ -77,11 +75,15 @@ if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
 
- 
- 
 find_package(Threads REQUIRED)
 
-find_package(spdlog REQUIRED)
+# find_package(spdlog)
+if(NOT spdlog_FOUND)
+    set(SlimSerialRTDE_USE_BUILTIN_SPDLOG_HEADERONLY ON)
+    message("---------spdlog not found, use built-in spdlog header-only")
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/spdlog/include)
+endif()
+
  
 set(SlimSerialRTDE_SRCS 
 src/AsyncSerial.cpp
@@ -103,11 +105,16 @@ target_include_directories(SlimSerialRTDE ${SlimSerialRTDE_INCLUDES_LEVEL} PUBLI
 target_include_directories(SlimSerialRTDE  PUBLIC 
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include/SlimSerialRTDE/asio>")
 
-target_link_libraries(SlimSerialRTDE PUBLIC 
-Threads::Threads
-spdlog::spdlog
-)
-
+if(spdlog_FOUND)
+    target_link_libraries(SlimSerialRTDE PUBLIC 
+    Threads::Threads
+    spdlog::spdlog
+    )
+else()
+    target_link_libraries(SlimSerialRTDE PUBLIC 
+    Threads::Threads
+    )
+endif()
 
 # if(${UNIX})
 # add_compile_options(-fPIC)
@@ -133,6 +140,7 @@ if(SlimSerialRTDE_BUILD_TESTS )
     enable_testing()
     add_subdirectory(tests)
 endif()
+
  
 
 ##################  install #############################

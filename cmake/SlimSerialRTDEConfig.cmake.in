@@ -4,7 +4,6 @@
 @PACKAGE_INIT@
 
 find_package(Threads REQUIRED)
-find_package(spdlog REQUIRED)
  
 set(config_targets_file @config_targets_file@)
  

@@ -11,7 +11,7 @@ include(../cmake/utils.cmake)
 find_package(PkgConfig)
  
 
-find_package(Catch2 REQUIRED)
+find_package(Catch2)
 if(Catch2_FOUND)
     message(STATUS "Packaged version of Catch will be used.")
 else()
