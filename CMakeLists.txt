@@ -76,7 +76,16 @@ option(SlimSerialRTDE_SANITIZE_ADDRESS "Enable address sanitizer in tests" OFF)
 if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
-FIND_PACKAGE(Boost REQUIRED COMPONENTS system)
+
+
+
+# FIND_PACKAGE(Boost COMPONENTS system)
+if(NOT Boost_FOUND)
+    message("Boost not found. Using extern/boost.")
+    include_directories(
+    ${CMAKE_CURRENT_LIST_DIR}/extern/boost
+)
+endif()
  
 find_package(Threads REQUIRED)
 
@@ -99,11 +108,18 @@ target_include_directories(SlimSerialRTDE ${SlimSerialRTDE_INCLUDES_LEVEL} PUBLI
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
 "$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>")
 
-target_link_libraries(SlimSerialRTDE PUBLIC 
-Boost::system
-Threads::Threads
-spdlog::spdlog
-)
+if(NOT Boost_FOUND)
+    target_link_libraries(SlimSerialRTDE PUBLIC 
+    Threads::Threads
+    spdlog::spdlog
+    )
+else()
+    target_link_libraries(SlimSerialRTDE PUBLIC 
+    Boost::system
+    Threads::Threads
+    spdlog::spdlog
+    )
+endif()
 
 # if(${UNIX})
 # add_compile_options(-fPIC)
