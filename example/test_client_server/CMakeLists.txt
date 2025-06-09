@@ -8,7 +8,7 @@ endif()
  
 
 
-if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG_HEADERONLY})
+if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG})
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/spdlog/include)
 else()
     find_package(spdlog REQUIRED)
@@ -24,7 +24,7 @@ target_include_directories(test_client_server  PUBLIC
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
 )
 
-if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG_HEADERONLY})
+if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG})
     TARGET_LINK_LIBRARIES( test_client_server
     SlimSerialRTDE
     )

@@ -285,7 +285,7 @@ std::array<int,8> testCommunications(int testTimeMs=10000) {
 		client.transmitFrameGood();
 
 
-		spdlog::info("{}  CT/SR/ERR= {}/{}/{}  ST/CR/ERR= {}/{}/{}   FCT/FCG/FSR/ERR = {}/{}/{}/{} FST/FCR/ERR = {}/{}/{} , roundtrip={}", 
+		spdlog::info("{}  CT/SR/ERR= {}/{}/{}  ST/CR/ERR= {}/{}/{}   FCT/FCG/FSR/ERR = {}/{}/{}/{} FST/FSG/FCR/ERR = {}/{}/{}/{} , roundtrip={}", 
 
 			toc,
 
