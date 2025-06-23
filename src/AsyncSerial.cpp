@@ -365,7 +365,7 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
         return txedsize;
     }
     catch (const std::exception& err) {
-        SPDLOG_ERROR( "Serial port {} start transmit error:{}", m_portname, err.what());
+        SPDLOG_ERROR( "Serial port {} transmit exception:{}", m_portname, err.what());
         triggerReconnect();
         return 0;
     }

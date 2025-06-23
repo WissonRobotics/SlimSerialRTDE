@@ -58,8 +58,10 @@ class SlimSerialRTDE::SlimSerialRTDEImpl : public AsyncSerial {
   std::mutex readBufferMtx;
   std::condition_variable readBufferCV;
 
-  std::array<uint8_t, 512> _inFrame;
+  std::array<uint8_t, INTERNAL_MAX_FRAME_SIZE> _inFrame;
   uint32_t _inFrameBytes;
+
+  std::array<uint8_t,INTERNAL_MAX_FRAME_SIZE> badframe_buf;
 
   uint8_t default_headers[2];
   uint8_t default_address;
@@ -396,6 +398,13 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
             if (applyFuncodeFilter(funcodeIn)) {
               // check length
               uint16_t expectedFrameBytes = circularBuffer.peekAt(3) + 7;
+              /******************* long frame for funcode = FUNC_PC_DEBUG_RESPONSE ************************* */
+              if(funcodeIn == 0xDC) //
+              {
+                uint8_t field_databytes = circularBuffer.peekAt(3);
+                expectedFrameBytes = (uint16_t)((uint16_t)(addressIn)<<8) + field_databytes + 7;
+                // SPDLOG_INFO("[frame parser] [expectedFrameBytes =  {} bytes", expectedFrameBytes);
+              }
               if (expectedFrameBytes <= lengthFilterMax) {
                 // got enough rx bytes
                 if (remainingBytes >= expectedFrameBytes) {
@@ -428,7 +437,7 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
                     SPDLOG_DEBUG("Bad CRC. calculated 0x{:2X}, recevied 0x{:2X}.",
                         circularBuffer.calculateCRC(expectedFrameBytes - 2),
                         circularBuffer.peekAt_U16(expectedFrameBytes - 2));
-                    std::array<uint8_t,256> badframe_buf;
+                    
                     circularBuffer.peek(&badframe_buf[0], expectedFrameBytes);
                     SPDLOG_DEBUG("rx frame content: {}", spdlog::to_hex(std::begin(badframe_buf), std::begin(badframe_buf) + expectedFrameBytes));
 
