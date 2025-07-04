@@ -4,8 +4,6 @@
 @PACKAGE_INIT@
 
 find_package(Threads REQUIRED)
-find_package(spdlog REQUIRED)
-find_package(Boost REQUIRED)
  
 set(config_targets_file @config_targets_file@)
  

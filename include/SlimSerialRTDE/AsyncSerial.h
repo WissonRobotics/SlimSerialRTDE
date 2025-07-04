@@ -4,8 +4,8 @@
 #include <array>
 #include <future>
 #include <chrono>
-#include "boost/asio.hpp"
-
+#include <asio.hpp>
+#include <asio/serial_port_base.hpp>
 #include <string.h>
 #include "stdio.h" 
 #include "SlimSerialRTDE/slimCircularBuffer.h"
@@ -15,22 +15,12 @@
 
 class AsyncSerial
 {
-	 
 	static constexpr int DEFAULT_CIRCULAR_BUF_SIZE = 4096;
-
-
-public:
-	typedef boost::asio::serial_port_base::flow_control::type flowControlType;
-	typedef boost::asio::serial_port_base::parity::type parityType;
-	typedef boost::asio::serial_port_base::stop_bits::type stopBitsType;
-	typedef boost::system::errc::errc_t errorCode;
-
-
 public:
 
 	AsyncSerial();
 	~AsyncSerial();
-	boost::system::error_code open(std::string, unsigned int = 115200,bool autoConnect=true);
+	std::error_code open(std::string, unsigned int = 115200,bool autoConnect=true);
 	bool isOpen() const;
 	void close();
 	void setBaudrate(uint32_t baud);
@@ -76,9 +66,8 @@ private:
 
 	std::array<uint8_t,4096> m_txBuffer;
 
-	boost::asio::io_context io_context;
-	boost::asio::serial_port serial_port;
-	boost::asio::io_context::work serial_work;
+	asio::io_context io_context;
+	asio::serial_port serial_port;
 	std::array<uint8_t, DEFAULT_CIRCULAR_BUF_SIZE> single_buf;
 	uint8_t cbBuf[DEFAULT_CIRCULAR_BUF_SIZE];
 
@@ -112,14 +101,14 @@ private:
 
 	void triggerReconnect();
 
-	boost::system::error_code doOpen(std::string, unsigned int = 115200, flowControlType = flowControlType::none, unsigned int = 8, parityType = parityType::none, stopBitsType = stopBitsType::one);
+	std::error_code doOpen(std::string, unsigned int = 115200, asio::serial_port_base::flow_control::type = asio::serial_port_base::flow_control::none, unsigned int = 8, asio::serial_port_base::parity::type = asio::serial_port_base::parity::none, asio::serial_port_base::stop_bits::type = asio::serial_port_base::stop_bits::one);
 
 	void doClose();
 	void setError(const int error_value);
 	int getError() const;
-	void asyncReadHandler(boost::system::error_code const& error, size_t bytes_transferred);
+	void asyncReadHandler(std::error_code const& error, size_t bytes_transferred);
 
-	void asyncWriteHandler(const boost::system::error_code& error, std::size_t bytes_transferred);
+	void asyncWriteHandler(const std::error_code& error, std::size_t bytes_transferred);
 
 	bool m_closing_state=false;
 };

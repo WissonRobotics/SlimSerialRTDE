@@ -6,8 +6,13 @@ if(NOT TARGET SlimSerialRTDE)
     find_package(SlimSerialRTDE REQUIRED)
 endif()
  
-find_package(spdlog REQUIRED)
 
+
+if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG})
+    include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/spdlog/include)
+else()
+    find_package(spdlog REQUIRED)
+endif()
 # set(CMAKE_CXX_STANDARD 20)
 # set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++2a")
@@ -18,10 +23,18 @@ test_client_server.cpp
 target_include_directories(test_client_server  PUBLIC
 "$<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>"
 )
-TARGET_LINK_LIBRARIES( test_client_server
-SlimSerialRTDE
-spdlog
-)
+
+if(${SlimSerialRTDE_USE_BUILTIN_SPDLOG})
+    TARGET_LINK_LIBRARIES( test_client_server
+    SlimSerialRTDE
+    )
+else()
+    target_link_libraries(test_client_server PUBLIC
+    SlimSerialRTDE
+    spdlog::spdlog
+    )
+endif()
+
 
 # if(${ARM64})
 #         message("-- The  slim_arm project platform is  ${CMAKE_SYSTEM_PROCESSOR}  system !")
