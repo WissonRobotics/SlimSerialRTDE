@@ -53,7 +53,7 @@ public:
     reset();
   };
   
-  ArmAction(bool preemptible=true):
+  ArmAction(bool preemptible):
   m_preemptible(preemptible),
   m_timeout(60),
   m_command_repeat_max(20),
