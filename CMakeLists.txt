@@ -47,6 +47,8 @@ include(InstallRequiredSystemLibraries)
 endif()
 include(GNUInstallDirs)
 
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
  
 ################## build options #############################
 if(NOT DEFINED SlimSerialRTDE_MASTER_PROJECT)
@@ -59,13 +61,13 @@ endif()
 # message(SlimSerialRTDE_MASTER_PROJECT = ${SlimSerialRTDE_MASTER_PROJECT})
  
 # example options
-option(SlimSerialRTDE_BUILD_EXAMPLE "Build example" ${SlimSerialRTDE_MASTER_PROJECT})
+option(SlimSerialRTDE_BUILD_EXAMPLE "Build example" ON)
 
 # testing options
-option(SlimSerialRTDE_BUILD_TESTS "Build tests" ${SlimSerialRTDE_MASTER_PROJECT})
+option(SlimSerialRTDE_BUILD_TESTS "Build tests" OFF)
 
 # install options
-option(SlimSerialRTDE_INSTALL "Generate the install target" ${SlimSerialRTDE_MASTER_PROJECT})
+option(SlimSerialRTDE_INSTALL "Generate the install target" ON)
 
 # sanitizer options
 option(SlimSerialRTDE_SANITIZE_ADDRESS "Enable address sanitizer in tests" OFF)

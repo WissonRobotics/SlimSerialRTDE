@@ -187,11 +187,6 @@ public:
 	uint64_t getTicm_tic_frameParser();
 	uint64_t getTicm_tic_frameComplete();
 	uint64_t getTicm_tic_frameParserEnd();
- 
-
-	uint16_t getOscilationStatus(float pitch_dji, float q, float ){
-		return WS_OK;
-	};
 
 	std::shared_ptr<spdlog::logger> m_logger; 
 private:
