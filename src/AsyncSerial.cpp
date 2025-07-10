@@ -147,11 +147,14 @@ std::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, asi
 #if defined(__linux__)
     auto native = serial_port.native_handle();
     struct serial_struct serial;
+    ioctl(native,TIOCEXCL, &serial);//set exclusive mode, so no other process can access the serial port
     ioctl(native, TIOCGSERIAL, &serial);
     serial.flags |= ASYNC_LOW_LATENCY; // (0x2000)
     ioctl(native, TIOCSSERIAL, &serial);
     usleep(2000); //required to make flush work, for some reason
     tcflush(native,TCIOFLUSH);
+
+    ioctl(native,TIOCEXCL);//set exclusive mode, so no other process can access the serial port
 
 #endif
 
