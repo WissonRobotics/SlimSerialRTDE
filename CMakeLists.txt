@@ -133,13 +133,11 @@ if(SlimSerialRTDE_USE_LOGURU)
 endif()
 
 
-# if(${UNIX})
-# add_compile_options(-fPIC)
-# target_link_libraries(SlimSerialRTDE PUBLIC
-#  pthread dl
-#  -fPIC
-# )
-# endif()
+if(${UNIX})
+target_link_libraries(SlimSerialRTDE PUBLIC
+  dl
+)
+endif()
 
 set_target_properties(SlimSerialRTDE PROPERTIES VERSION ${SlimSerialRTDE_VERSION} SOVERSION ${SlimSerialRTDE_VERSION_MAJOR}.${SlimSerialRTDE_VERSION_MINOR})
 
