@@ -105,6 +105,7 @@ endif()
 set(SlimSerialRTDE_SRCS 
 src/AsyncSerial.cpp
 src/SlimSerialRTDE.cpp
+src/SlimAction.cpp
 )
 add_library(SlimSerialRTDE STATIC ${SlimSerialRTDE_SRCS} ${SlimSerialRTDE_ALL_HEADERS})
 
