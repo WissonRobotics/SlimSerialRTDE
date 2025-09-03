@@ -2,7 +2,7 @@
 #include "SlimSerialRTDE/AsyncSerial.h"
 #include <spdlog/fmt/bin_to_hex.h>
 #include <spdlog/fmt/fmt.h> 
-
+#include "spdlog/sinks/rotating_file_sink.h"
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -54,15 +54,15 @@ std::error_code AsyncSerial::open(std::string dev_node, unsigned int baud, bool 
 {
     std::error_code e = doOpen(dev_node, baud);
     if (isOpen()) {
-        SPDLOG_INFO( "Serial {} is opened.",dev_node);
+        m_logger->info( "Serial {} is opened.",dev_node);
  
     }
     else {
-        SPDLOG_ERROR( "Serial {} fail to open with error: {}", dev_node,e.message());
+        m_logger->error( "Serial {} fail to open with error: {}", dev_node,e.message());
  
     }
     if(autoConnect){
-        SPDLOG_INFO( "Serial {} Auto Reconnect is turned on at 1s interval", dev_node);
+        m_logger->info( "Serial {} Auto Reconnect is turned on at 1s interval", dev_node);
         startAutoConnect(1000);
     }
     else{
@@ -78,17 +78,17 @@ void AsyncSerial::stopIOContextThread(){
         try {
 
             serial_port.cancel();
-            SPDLOG_DEBUG( "serial_port {} jobs canceled", m_portname);
+            m_logger->debug( "serial_port {} jobs canceled", m_portname);
         }
         catch (...) {
             
         }
         try {
             serial_port.close();
-            SPDLOG_DEBUG( "serial_port {} closed", m_portname);
+            m_logger->debug( "serial_port {} closed", m_portname);
         }
         catch (...) {
-            SPDLOG_ERROR( "serial_port {} closing error", m_portname);
+            m_logger->error( "serial_port {} closing error", m_portname);
         }
     }
 
@@ -98,10 +98,10 @@ void AsyncSerial::stopIOContextThread(){
         }
         while(!io_context.stopped()){
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            SPDLOG_DEBUG("Waiting for io_context to stop");
+            m_logger->debug("Waiting for io_context to stop");
         }
         if(io_context.stopped()){
-            SPDLOG_DEBUG("serial port {} io_context is stopped",m_portname);
+            m_logger->debug("serial port {} io_context is stopped",m_portname);
         }
  
         if(ioContextThread->joinable()){
@@ -110,7 +110,7 @@ void AsyncSerial::stopIOContextThread(){
             
         }
         ioContextThread.reset();
-        SPDLOG_DEBUG("serial port {} ioContextThread stopped",m_portname);
+        m_logger->debug("serial port {} ioContextThread stopped",m_portname);
     }
 }
 
@@ -130,10 +130,10 @@ std::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, asi
     m_baudrate = baud;
 
     serial_port.open(m_portname, _errorCode);
-    SPDLOG_INFO( "serial {} open with state: {}", m_portname, _errorCode.message());
+    m_logger->info( "serial {} open with state: {}", m_portname, _errorCode.message());
 
     if (!serial_port.is_open()) {
-        SPDLOG_ERROR( "serial {} open failed", m_portname);
+        m_logger->error( "serial {} open failed", m_portname);
         return _errorCode;
     }
         
@@ -147,11 +147,14 @@ std::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, asi
 #if defined(__linux__)
     auto native = serial_port.native_handle();
     struct serial_struct serial;
+    ioctl(native,TIOCEXCL, &serial);//set exclusive mode, so no other process can access the serial port
     ioctl(native, TIOCGSERIAL, &serial);
     serial.flags |= ASYNC_LOW_LATENCY; // (0x2000)
     ioctl(native, TIOCSSERIAL, &serial);
     usleep(2000); //required to make flush work, for some reason
     tcflush(native,TCIOFLUSH);
+
+    ioctl(native,TIOCEXCL);//set exclusive mode, so no other process can access the serial port
 
 #endif
 
@@ -196,20 +199,20 @@ void AsyncSerial::startAutoConnect(int autoReconnectTimeMs) {
 
 
                 if (needToReconnectFlag && !stop_token.stop_requested()) {
-                    SPDLOG_WARN( "Serialport {} got a reconnect command", m_portname);
+                    m_logger->warn( "Serialport {} got a reconnect command", m_portname);
                      
                     doClose();
 
-                    SPDLOG_WARN( "Serialport {} reconnecting", m_portname);
+                    m_logger->warn( "Serialport {} reconnecting", m_portname);
                     doOpen(m_portname, m_baudrate);
                 }
                 else {
                     if (!isOpen()) {
-                        SPDLOG_WARN( "Serialport {} detects disconnected", m_portname);
+                        m_logger->warn( "Serialport {} detects disconnected", m_portname);
                         
                         doClose();
 
-                        SPDLOG_WARN( "Serialport {} reconnecting", m_portname);
+                        m_logger->warn( "Serialport {} reconnecting", m_portname);
                         doOpen(m_portname, m_baudrate);
 
                     }
@@ -225,18 +228,18 @@ void AsyncSerial::startAutoConnect(int autoReconnectTimeMs) {
 void AsyncSerial::stopAutoConnect() {
     try {
         if (reconnectThread) {
-            SPDLOG_DEBUG( "Serialport {} stopping reconnect thread ", m_portname);
+            m_logger->debug( "Serialport {} stopping reconnect thread ", m_portname);
             reconnectThread->request_stop();
             reconnectCV.notify_one();
             if(reconnectThread->joinable()){
                 reconnectThread->join();
             }
             reconnectThread.reset();
-            SPDLOG_DEBUG( "Serialport {} cleaning reconnect thread ", m_portname);
+            m_logger->debug( "Serialport {} cleaning reconnect thread ", m_portname);
         }
     }
     catch (...) {
-        SPDLOG_ERROR( "Serialport {} fail to stop AutoConnect ", m_portname);
+        m_logger->error( "Serialport {} fail to stop AutoConnect ", m_portname);
     }
 
 }
@@ -254,7 +257,7 @@ void AsyncSerial::asyncReadHandler(const std::error_code& error, std::size_t byt
 {
     if (error) {
         if(!m_closing_state){
-            SPDLOG_ERROR( "Serialport Error when reading: {}", error.message());
+            m_logger->error( "Serialport Error when reading: {}", error.message());
         }
         setError(error.value());
         triggerReconnect();
@@ -263,13 +266,15 @@ void AsyncSerial::asyncReadHandler(const std::error_code& error, std::size_t byt
 
     circularBuffer.in(&single_buf[0], bytes_transferred);
 
+    m_totalRxBytes += bytes_transferred;
+
     serial_port.async_read_some(
         asio::buffer(single_buf),
         [this](const std::error_code& error, std::size_t bytes_transferred) {
             asyncReadHandler(error, bytes_transferred);
         });
 
-    m_totalRxBytes += bytes_transferred;
+    
 
     if(rxDataCallback)
         rxDataCallback();
@@ -280,7 +285,7 @@ void AsyncSerial::asyncWriteHandler(const std::error_code& error, std::size_t by
 
     if (error) {
         if(!m_closing_state){
-            SPDLOG_ERROR( "Serialport Error when writing: {}", error.message());
+            m_logger->error( "Serialport Error when writing: {}", error.message());
         }
         setError(error.value());
         triggerReconnect();
@@ -328,7 +333,7 @@ std::size_t AsyncSerial::transmit(const std::vector<uint8_t>& v)
 std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
 {
     if (!isOpen()) {
-        SPDLOG_ERROR( "Fail to transmit, serial port {} is not opened", m_portname);
+        m_logger->error( "Fail to transmit, serial port {} is not opened", m_portname);
         return 0;
     }
 
@@ -343,12 +348,12 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
 
         memcpy((uint8_t *)(&m_txBuffer[0]), pData, datasize); 
         
-        SPDLOG_DEBUG( "Transmitting {} nytes",datasize);
-        SPDLOG_TRACE("[Tx] {}", spdlog::to_hex(std::begin(m_txBuffer), std::begin(m_txBuffer) + datasize));
+        m_logger->debug( "Transmitting {} nytes",datasize);
+        m_logger->trace("[Tx] {}", spdlog::to_hex(std::begin(m_txBuffer), std::begin(m_txBuffer) + datasize));
    
  
         if (!isOpen()) {
-            SPDLOG_ERROR( "Fail to transmit, serial port {} is not opened", m_portname);
+            m_logger->error( "Fail to transmit, serial port {} is not opened", m_portname);
             writeLocked = false;
             writeCv.notify_one();
             return 0;
@@ -357,7 +362,7 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
         m_totalTxBytes += txedsize;
         m_totalTxFrames++;
         if (datasize != txedsize) {
-            SPDLOG_DEBUG( "Transmitted only {} out of {} bytes", txedsize, datasize);
+            m_logger->debug( "Transmitted only {} out of {} bytes", txedsize, datasize);
         }
 
         writeLocked = false;
@@ -365,7 +370,7 @@ std::size_t AsyncSerial::transmit(uint8_t *pData,uint16_t datasize)
         return txedsize;
     }
     catch (const std::exception& err) {
-        SPDLOG_ERROR( "Serial port {} transmit exception:{}", m_portname, err.what());
+        m_logger->error( "Serial port {} transmit exception:{}", m_portname, err.what());
         triggerReconnect();
         return 0;
     }
@@ -380,7 +385,7 @@ void AsyncSerial::transmitAsync(const std::vector<uint8_t>& v){
 void AsyncSerial::transmitAsync(uint8_t *pData,uint16_t datasize)
 {
     if (!isOpen()) {
-        SPDLOG_ERROR( "Fail to transmit, serial port {} is not opened", m_portname);
+        m_logger->error( "Fail to transmit, serial port {} is not opened", m_portname);
         return;
     }
     try {
@@ -394,11 +399,11 @@ void AsyncSerial::transmitAsync(uint8_t *pData,uint16_t datasize)
         //keep internal copy
         memcpy((uint8_t *)(&m_txBuffer[0]), pData, datasize);
   
-        SPDLOG_DEBUG( "Transmitting {} nytes",datasize);
-        SPDLOG_TRACE("[Tx] {}", spdlog::to_hex(std::begin(m_txBuffer), std::begin(m_txBuffer) + datasize));
+        m_logger->debug( "Transmitting {} nytes",datasize);
+        m_logger->trace("[Tx] {}", spdlog::to_hex(std::begin(m_txBuffer), std::begin(m_txBuffer) + datasize));
    
         if (!isOpen()) {
-            SPDLOG_ERROR( "Fail to transmit, serial port {} is not opened", m_portname);
+            m_logger->error( "Fail to transmit, serial port {} is not opened", m_portname);
             writeLocked = false;
             return ;
         }
@@ -410,7 +415,7 @@ void AsyncSerial::transmitAsync(uint8_t *pData,uint16_t datasize)
             });
     }
     catch (const std::exception& err) {
-        SPDLOG_ERROR( "Serial port {} start transmitAsync error:{}", m_portname, err.what());
+        m_logger->error( "Serial port {} start transmitAsync error:{}", m_portname, err.what());
     }
 }
 
