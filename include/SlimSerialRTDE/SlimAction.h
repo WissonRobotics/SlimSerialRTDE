@@ -12,7 +12,10 @@
 #include <spdlog/fmt/fmt.h>
 
 #include "SlimSerialRTDE/SlimSerialRTDE.h"
- 
+
+#ifdef USE_LOGURU
+#include <loguru/loguru.hpp>
+#endif
 inline std::chrono::_V2::steady_clock::time_point TIC(){
     return std::chrono::steady_clock::now();
 }
@@ -109,14 +112,22 @@ public:
         }  
     
         if (repeat_max != 0 && repeat_times >= repeat_max) {
-        SPDLOG_ERROR("[Command_repeat Timeout] {} exceed {} times ",std::source_location::current().function_name(),repeat_max);
+          #ifdef USE_LOGURU
+          LOG_F(ERROR, "[Command_repeat Timeout] %s exceed %d times ",std::source_location::current().function_name(),repeat_max);
+          #else
+          SPDLOG_ERROR("[Command_repeat Timeout] {} exceed {} times ",std::source_location::current().function_name(),repeat_max);
+          #endif
         return WS_TIMEOUT;
         }
 
         if (timeout_max != 0) {
         if (TOC(func_start_time) > timeout_max) {
-            SPDLOG_ERROR("[Command_repeat Timeout] {} timeout for {} ms",std::source_location::current().function_name(),timeout_max);
-            return WS_TIMEOUT;
+          #ifdef USE_LOGURU
+          LOG_F(ERROR, "[Command_repeat Timeout] %s timeout for %f ms",std::source_location::current().function_name(),timeout_max);
+          #else
+          SPDLOG_ERROR("[Command_repeat Timeout] {} timeout for {} ms",std::source_location::current().function_name(),timeout_max);
+          #endif
+          return WS_TIMEOUT;
         }
         }
 
@@ -132,28 +143,52 @@ public:
     if(m_preemptible){
       lock_.unlock();
     }
+
+    #ifdef USE_LOGURU
+    LOG_F(INFO, "[Act %s] [Init]",m_actionName.c_str());
+    #else
     SPDLOG_INFO( "[Act {}] [Init]",m_actionName);
+    #endif
 
     if(!isStopped()){
 
       stopAction();
+
+      #ifdef USE_LOGURU
+      LOG_F(WARNING, "[Act %s] [Preempt] A previous Act %s is running, stopping it now...",m_actionName.c_str(),m_actionName_last.c_str());
+      #else
       SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is running, stopping it now...",m_actionName,m_actionName_last);
+      #endif
       
       int timeoutSeconds = 5;
       while(spinWait([&](){return isStopped();},1,200)!=WS_OK){
 
        // stopAction();
+
+        #ifdef USE_LOGURU
+        LOG_F(WARNING, "[Act %s] [Preempt] A previous Act %s is still running, stopping it now...",m_actionName.c_str(),m_actionName_last.c_str());
+        #else
         SPDLOG_WARN( "[Act {}] [Preempt] A previous Act {} is still running, stopping it now...",m_actionName,m_actionName_last);
+        #endif
+
         if(timeoutSeconds--<=0){
           break;
         }
       }
 
       if(isStopped()){
+        #ifdef USE_LOGURU
+        LOG_F(INFO, "[Act %s] [Preempt] Successfully stopped previous Act %s, going to perform current action anyway",m_actionName.c_str(),m_actionName_last.c_str());
+        #else
         SPDLOG_DEBUG( "[Act {}] [Preempt] Successfully stopped previous Act {}, going to perform current action anyway",m_actionName,m_actionName_last);
+        #endif
       }
       else{
+        #ifdef USE_LOGURU
+        LOG_F(WARNING, "[Act %s] [Preempt] Fail to stop previous Act %s, going to perform current action anyway",m_actionName.c_str(),m_actionName_last.c_str());
+        #else
         SPDLOG_WARN( "[Act {}] [Preempt] Fail to stop previous Act {}, going to perform current action anyway",m_actionName,m_actionName_last);
+        #endif
       }
     }
 
@@ -173,7 +208,11 @@ public:
  
     //fast fail  
     if(!m_actionEnabled){
+      #ifdef USE_LOGURU
+      LOG_F(ERROR, "[Act %s] [Abort] Action is disabled",m_actionName.c_str());
+      #else
       SPDLOG_ERROR( "[Act {}] [Abort] Action is disabled",m_actionName);
+      #endif
       m_idleFlag = true;
       m_actionResult = WS_STATUS::WS_FAIL;
       if(m_actionCompleteCallback){
@@ -185,7 +224,11 @@ public:
 
     //fast fail for start pre condition
     if (!m_actionStartCondition(m_progress)){
+      #ifdef USE_LOGURU
+      LOG_F(ERROR, "[Act %s] [Abort] %s",m_actionName.c_str(),m_progress.message.c_str());
+      #else
       SPDLOG_ERROR( "[Act {}] [Abort] {}",m_actionName,m_progress.message);
+      #endif
       m_idleFlag = true;
       m_actionResult = WS_STATUS::WS_ERROR;
       if(m_actionCompleteCallback){
@@ -194,7 +237,11 @@ public:
       return m_actionResult;
     }
     else{
+      #ifdef USE_LOGURU
+      LOG_F(INFO, "[Act %s] [Start] %s",m_actionName.c_str(),m_progress.message.c_str());
+      #else
       SPDLOG_INFO( "[Act {}] [Start] {}",m_actionName,m_progress.message);
+      #endif
     }
 
 
@@ -204,11 +251,19 @@ public:
  
     if (func_ret != WS_STATUS::WS_OK) {
       m_progress.timeCost = TOC(action_start_time);
+      #ifdef USE_LOGURU
+      LOG_F(ERROR, "[Act %s] [Failed] [{%.1f} s] commanding timeout over %d times ",m_actionName.c_str(),m_progress.timeCost,m_command_repeat_max);
+      #else
       SPDLOG_ERROR( "[Act {}] [Failed] [{:1f} s] commanding timeout over {} times ",m_actionName,m_progress.timeCost,m_command_repeat_max);
+      #endif
       m_actionResult = WS_STATUS::WS_FAIL;
     }
     else{
+      #ifdef USE_LOGURU
+      LOG_F(INFO, "[Act %s] [Command] [OK]",m_actionName.c_str());
+      #else
       SPDLOG_TRACE( "[Act {}] [Command] [OK]",m_actionName);
+      #endif
       action_start_time = TIC();
       while(true){
         auto nextTick = TIC() + std::chrono::milliseconds(10);
@@ -223,21 +278,33 @@ public:
         
         //timeout
         if (m_progress.timeCost > m_timeout) {
+          #ifdef USE_LOGURU
+          LOG_F(ERROR, "[Act %s] [Timeout] [{%.1f} s]",m_actionName.c_str(),m_progress.timeCost);
+          #else
           SPDLOG_ERROR( "[Act {}] [Timeout] [{:1f} s]",m_actionName,m_progress.timeCost);
+          #endif
           m_actionResult = WS_STATUS::WS_TIMEOUT;
           break;
         }
  
         //external stop condition
         if (m_actionStopCondition(m_progress)) {
+          #ifdef USE_LOGURU
+          LOG_F(WARNING, "[Act %s] [Stopped] [{%.1f} s] {}",m_actionName.c_str(),m_progress.timeCost,m_progress.message);
+          #else
           SPDLOG_WARN( "[Act {}] [Stopped] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          #endif
           m_actionResult = WS_STATUS::WS_ABORT;
           break;
         }
 
         //internal stop request
         if (m_stopRequest || (!m_actionEnabled)) {
+          #ifdef USE_LOGURU
+          LOG_F(WARNING, "[Act %s] [Stopped] [{%.1f} s] Stop command is received",m_actionName.c_str(),m_progress.timeCost);
+          #else
           SPDLOG_WARN( "[Act {}] [Stopped] [{:1f} s] Stop command is received",m_actionName,m_progress.timeCost);
+          #endif
           m_stopRequest=false;
           m_actionResult = WS_STATUS::WS_ABORT;
           break;  
@@ -247,9 +314,13 @@ public:
 
         //complete condition
         if (m_actionCompleteCondition(m_progress)){
+          #ifdef USE_LOGURU
+          LOG_F(INFO, "[Act %s] [Successful] [{%.1f} s] %s",m_actionName.c_str(),m_progress.timeCost,m_progress.message.c_str());
+          #else
           SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
           //SPDLOG_INFO( "[Act {}] [Progress {}%%] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
           SPDLOG_INFO( "[Act {}] [Successful]",m_actionName);
+          #endif
           m_actionResult = WS_STATUS::WS_OK;
           break;
         }
@@ -266,8 +337,12 @@ public:
         }
 
         if(m_progress.conditionCheckNumber % m_progress.messageFrequencyDivide == 0 ){
-          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          #ifdef USE_LOGURU
+          LOG_F(INFO, "[Act %s] [{%.1f} s] {}",m_actionName.c_str(),m_progress.timeCost,m_progress.message.c_str());
           //SPDLOG_INFO( "[Act {}] [Progress {}] [{:1f} s] {}",m_actionName,m_progress.percentage,m_progress.timeCost,m_progress.message);
+          #else
+          SPDLOG_INFO( "[Act {}] [{:1f} s] {}",m_actionName,m_progress.timeCost,m_progress.message);
+          #endif
         }
         
 

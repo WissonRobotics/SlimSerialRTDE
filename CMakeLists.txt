@@ -61,6 +61,10 @@ endif()
 # message(SlimSerialRTDE_MASTER_PROJECT = ${SlimSerialRTDE_MASTER_PROJECT})
  
 # example options
+option(SlimSerialRTDE_PYTHON_BINDING "Build Python Binding" OFF)
+
+option(SlimSerialRTDE_USE_LOGURU "Use Loguru for logging" ON)
+
 option(SlimSerialRTDE_BUILD_EXAMPLE "Build example" ON)
 
 # testing options
@@ -88,6 +92,15 @@ else()
     include_directories(${CMAKE_CURRENT_SOURCE_DIR}/extern/spdlog/include)
 endif()
 
+# enable loguru if necessary
+if(SlimSerialRTDE_USE_LOGURU)
+    message(STATUS "Using Loguru for logging")
+    find_package(loguru REQUIRED)
+    add_compile_definitions(-DUSE_LOGURU)
+else()
+    message(STATUS "Using spdlog for logging")
+endif()
+
  
 set(SlimSerialRTDE_SRCS 
 src/AsyncSerial.cpp
@@ -113,6 +126,10 @@ target_link_libraries(SlimSerialRTDE PUBLIC
 Threads::Threads
 spdlog::spdlog
 )
+
+if(SlimSerialRTDE_USE_LOGURU)
+    target_link_libraries(SlimSerialRTDE PUBLIC loguru::loguru)
+endif()
 
 
 # if(${UNIX})
