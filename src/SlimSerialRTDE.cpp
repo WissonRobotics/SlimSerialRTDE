@@ -359,7 +359,10 @@ WS_STATUS SlimSerialRTDE::SlimSerialRTDEImpl::frameParser() {
 
     // type 0 is treating any data to be a valid frame. so simply read out all the data and call framecallback
     if (_frameType == SLIMSERIAL_FRAME_TYPE_0_NUM) {
-      _inFrameBytes = circularBuffer.availableBytes();
+
+      remainingBytes = circularBuffer.availableBytes();
+
+      _inFrameBytes = remainingBytes;
 
       circularBuffer.out((uint8_t*)(&_inFrame[0]), _inFrameBytes);
       remainingBytes -= _inFrameBytes;
