@@ -74,7 +74,7 @@ private:
 	int m_autoReconnectTimeMs=1000;
 	std::unique_ptr<std::jthread> ioContextThread;
 
-
+	std::optional<asio::executor_work_guard<asio::io_context::executor_type>> work_guard;
 
 	mutable std::mutex readBufferMtx;
 	mutable std::mutex errMtx;

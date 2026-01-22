@@ -93,6 +93,11 @@ void AsyncSerial::stopIOContextThread(){
     }
 
     if(ioContextThread){
+        //  允许 io_context.run() 退出
+        if (work_guard) {
+            work_guard.reset();   
+        }
+
         if (!io_context.stopped()) {
             io_context.stop();
         }
@@ -159,7 +164,8 @@ std::error_code AsyncSerial::doOpen(std::string dev_node, unsigned int baud, asi
 #endif
 
    
- 
+    work_guard.emplace(io_context.get_executor());
+    
     ioContextThread = std::make_unique<std::jthread>(
         [this]()
         {
